@@ -111,6 +111,16 @@ def _select_page_targets(
         if score > 0:
             matches.append((score, block_bonus, type_bonus, chunk_id))
     if not matches:
+        if not normalized_cue:
+            heading_candidates = [
+                chunk_id
+                for chunk_id, block_type, _, _, _ in candidates
+                if block_type in {"Title", "SectionHeader"}
+            ]
+            if len(heading_candidates) == 1:
+                return heading_candidates
+            if len(candidates) == 1:
+                return [candidates[0][0]]
         return []
     best_score = max(score for score, _, _, _ in matches)
     scored = [entry for entry in matches if entry[0] == best_score]
@@ -219,9 +229,13 @@ def _extract_candidates(
     doc_id: str,
     indices: Dict[str, Dict[str, Set[str]]],
     page_text_index: Dict[str, List[Tuple[str, Optional[str], Optional[str], Optional[str]]]],
+    section_header_index: Optional[Dict[str, str]] = None,
 ) -> Tuple[List[Dict[str, Any]], Counter]:
     candidates: List[Dict[str, Any]] = []
     keyword_counts: Counter = Counter()
+
+    if section_header_index is None:
+        section_header_index = {}
 
     for chunk in chunks:
         text = chunk.get("text", "") or ""
@@ -231,11 +245,63 @@ def _extract_candidates(
         if chunk.get("block_type") in {"Table", "Picture", "SectionHeader", "Title"}:
             continue
 
+        chunk_id = chunk.get("id")
+        section_path = chunk.get("section_path") or []
+        section_key = " > ".join(section_path) if section_path else ""
+        header_id = section_header_index.get(section_key) if section_key else None
+        if chunk_id and header_id and chunk_id != header_id:
+            candidates.append(
+                {
+                    "from": chunk_id,
+                    "source_document": doc_id,
+                    "page": chunk.get("page"),
+                    "content_kind": chunk.get("content_kind"),
+                    "section_path": section_path,
+                    "relation": "in_section",
+                    "cue": section_key,
+                    "cue_title": "",
+                    "parsed_target": {
+                        "type": "section_header",
+                        "label": section_key,
+                        "raw": section_key,
+                    },
+                    "resolved_targets": [header_id],
+                    "resolution_count": 1,
+                    "is_ambiguous": False,
+                }
+            )
+
         for entry in REFERENCE_PATTERNS:
             for match in entry["regex"].finditer(text):
                 label = match.group("label") if "label" in match.groupdict() else ""
                 normalized_label = _normalize_label(label)
                 target_type = entry["target_type"]
+                if target_type == "term":
+                    normalized_term = _normalize_title(label)
+                    if not normalized_term:
+                        continue
+                    term_id = f"canon:term:{normalized_term}"
+                    candidates.append(
+                        {
+                            "from": chunk.get("id"),
+                            "source_document": doc_id,
+                            "page": chunk.get("page"),
+                            "content_kind": chunk.get("content_kind"),
+                            "section_path": chunk.get("section_path"),
+                            "relation": entry["relation"],
+                            "cue": match.group(0).strip(),
+                            "cue_title": "",
+                            "parsed_target": {
+                                "type": target_type,
+                                "label": normalized_term,
+                                "raw": label,
+                            },
+                            "resolved_targets": [term_id],
+                            "resolution_count": 1,
+                            "is_ambiguous": False,
+                        }
+                    )
+                    continue
                 if target_type == "section":
                     if normalized_label.startswith(
                         ("chapter ", "page", "pages", "table", "figure")
@@ -246,12 +312,19 @@ def _extract_candidates(
                 if target_type == "section":
                     has_number = bool(re.search(r"\d+(?:[.\-–]\d+)+", label))
                     exact_heading = _normalize_title(label)
+                    has_section_word = bool(
+                        match.groupdict().get("section_word")
+                        if "section_word" in match.groupdict()
+                        else False
+                    )
                     if has_number or exact_heading in indices["section_exact"]:
                         relation_override = "references_named_section"
                         anchor_variants = set()
                         if exact_heading:
                             anchor_variants.add(exact_heading)
                     else:
+                        if not has_section_word:
+                            continue
                         relation_override = "mentions_section"
                 elif target_type == "chapter":
                     anchor_variants.add(f"chapter {normalized_label}")

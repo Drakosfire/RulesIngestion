@@ -27,6 +27,7 @@ from scripts.discover_deterministic_edges_gates import _run_ocr_spelling_gates
 from scripts.discover_deterministic_edges_indexing import (
     _build_indices,
     _build_page_text_index,
+    _build_section_header_index,
     _load_enriched,
     _parse_doc_page_offset,
 )
@@ -112,8 +113,9 @@ def main() -> None:
         page_offset = _parse_doc_page_offset(doc_id)
         indices = _build_indices(chunks, doc_id, page_offset)
         page_text_index = _build_page_text_index(chunks, page_offset)
+        section_header_index = _build_section_header_index(chunks)
         candidates, keyword_counts = _extract_candidates(
-            chunks, doc_id, indices, page_text_index
+            chunks, doc_id, indices, page_text_index, section_header_index
         )
         if not args.skip_gates:
             gate_summary = _run_ocr_spelling_gates(

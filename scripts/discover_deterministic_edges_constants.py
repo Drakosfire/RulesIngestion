@@ -48,9 +48,9 @@ REFERENCE_PATTERNS = [
         "relation": "references_section",
         "target_type": "section",
         "regex": re.compile(
-            r"\b(?:see|refer to|as described in|as detailed in)\s*"
+            r"\b(?:see|refer to|as described in|as detailed in|see also)\b\s*"
             r"(?:the\s+)?(?P<label>[A-Z][A-Za-z0-9][A-Za-z0-9 \-]{2,80})"
-            r"(?:\s+section|\b)",
+            r"(?:\s+(?P<section_word>section))?\b",
             re.IGNORECASE,
         ),
     },
@@ -60,6 +60,15 @@ REFERENCE_PATTERNS = [
         "regex": re.compile(
             r"\b(?:see|refer to|as described in|as detailed in)?\s*"
             r"(?:page|pages)\s+(?P<label>\d{1,4})\b",
+            re.IGNORECASE,
+        ),
+    },
+    {
+        "relation": "defines_term",
+        "target_type": "term",
+        "regex": re.compile(
+            r"\b(?P<label>[A-Z][A-Za-z0-9'’\- ]{2,60})\b\s+"
+            r"(?:means|refers to|is defined as|is called)\b",
             re.IGNORECASE,
         ),
     },

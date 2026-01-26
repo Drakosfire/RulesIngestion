@@ -269,3 +269,23 @@ def _build_indices(
                         indices["figure"][f"figure {label} {caption}"].add(chunk_id)
 
     return indices
+
+
+def _build_section_header_index(
+    chunks: List[Dict[str, Any]],
+) -> Dict[str, str]:
+    header_index: Dict[str, str] = {}
+    for chunk in chunks:
+        chunk_id = chunk.get("id")
+        if not chunk_id:
+            continue
+        block_type = chunk.get("block_type") or ""
+        if block_type not in {"SectionHeader", "Title"}:
+            continue
+        section_path = chunk.get("section_path") or []
+        if not section_path:
+            continue
+        section_key = " > ".join(section_path)
+        if section_key and section_key not in header_index:
+            header_index[section_key] = chunk_id
+    return header_index
