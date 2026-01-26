@@ -14,6 +14,10 @@ Produce chunked content that is:
 - Deterministically reproducible
 - Verified with adaptive, 99% coverage gates
 
+**Collection-level objective:** traversal must scale from single-book graphs to
+ruleset-wide traversal without manual intervention (cross-book deterministic edges,
+ruleset-level merge, and evaluation gates must emerge from ingestion + config).
+
 ## Scope and Boundaries
 **In scope:**
 - Deterministic extraction (Marker JSON + markdown)
@@ -143,6 +147,140 @@ chunk -> chunk (next)
 - Marker chunks are sufficient for RAG; custom chunking is not required.
 - Evaluation queries are generated from enriched chunks; evaluation should use the same chunk source.
 
+## Traceable Retrieval Levers (Ingestion + Retrieval Only)
+These are the knobs that determine whether retrieval is provably traceable:
+
+### 1) Deterministic Edge Discovery + Gates (Highest Leverage)
+**Where:** `RulesIngestion/scripts/`
+- `discover_deterministic_edges.py`: orchestrates edge discovery.
+- `discover_deterministic_edges_candidates.py`: pattern extraction for `defines_term`, `mentions_term`,
+  `references_page`, `references_named_section`.
+- `discover_deterministic_edges_indexing.py`: page/section indices for resolution.
+- `discover_deterministic_edges_gates.py`: OCR/spelling guardrails.
+
+**Gating levers (fail => demote to hint edges):**
+- Unresolved mention rate thresholds
+- OCR suspect token rate thresholds
+- Near-duplicate canonical name thresholds
+
+**Why this matters:** deterministic traversal only stays trustworthy when strict edges are filtered by
+gates and ambiguous candidates are not emitted as traversal edges.
+
+### 1.5) Ruleset-Scoped Traversal (Collection Goal)
+**Definition:** Graph traversal should work across all ingested books in a ruleset
+without manual stitching. This requires:
+- ruleset-level merge of graphs and edge candidates
+- canonical entity indices (exact match only) for cross-book linking
+- gate-driven emission (OCR/spelling/ambiguity) before cross-book edges become traversal-safe
+
+**Success condition:** A query anchored in Book A can deterministically reach
+its canonical definition in Book B without expanding to unrelated content.
+
+### 2) Graph Semantics + Gold Expansion
+**Where:** `RulesIngestion/evaluation/graph_ops.py`
+- `include_section`: whether section-path neighbors count as reachable.
+- `same_kind_only`: restrict expansion to same `content_kind`.
+- `next_depth`: graph expansion depth.
+- `max_total`: cap for expanded expected IDs.
+
+These controls define which edges are considered safe for traversal and evaluation.
+
+### 3) Graph Boost (Hybrid Retrieval, Traceable)
+**Where:** `RulesIngestion/evaluation/scoring_engine.py`
+- `graph_boost`: score bonus for graph-neighbor candidates.
+- `graph_boost_depth`: traversal depth for boost.
+- `graph_boost_source`: `"expected"` vs `"top"` seed source.
+- `graph_boost_seed_top_n`: seed count when using `"top"`.
+- `graph_boost_top_k`: cap of boost-eligible candidates.
+- `graph_boost_same_kind_only`: keep boosts within same content kind.
+- `graph_boost_decay`: depth-based decay.
+
+**Best-practice preset (evaluation harness):**
+`--best-practice-boost` sets:
+- `graph_boost=0.05`
+- `graph_boost_source="top"`
+- `graph_boost_seed_top_n=3`
+- `graph_boost_depth=2`
+- `graph_boost_top_k=50`
+- `graph_boost_decay=0.4`
+and forces `expand_gold` with `chunk_source="enriched"`.
+
+### 4) Chapter Routing (Semantic Narrowing)
+**Where:** `RulesIngestion/evaluation/chapter_routing.py`
+- `top_n`: chapters retained for retrieval.
+- `rerank`: enable chunk-level rerank inside chapters.
+- `rerank_pool`: pool size before rerank.
+- `chapter_embedding_source`: `"summary"`, `"mean"`, `"weighted"`.
+
+**Summary construction knobs:**
+`build_chapter_summary_texts()` uses `max_chunks=10`, `max_chars=1200`.
+
+**LLM summary knobs:**
+`RulesIngestion/evaluation/llm_summarization.py`
+- `chapter_summary_llm_model`
+- `chapter_summary_llm_temperature`
+- `chapter_summary_llm_max_input_chars`
+- `chapter_summary_llm_segment_max_chars`
+- `chapter_summary_llm_lengths`
+- `chapter_summary_llm_embed_key`
+
+**Single-chapter PDFs:**
+If `section_path` is empty, chapter routing collapses to a single chapter (document id),
+so routing still works but is not informative. Consider skipping chapter summary/routing
+steps for cost/time if a book has no clear chapter boundaries.
+
+**Recent diagnostic (2026-01-25, PlayerCore, top_n=5):**
+- Rerank changed `0/3606` queries (change rate `0.0000`).
+- Treat rerank as a no-op until this changes; prefer disabling to save time.
+
+### 5) Chunking + Coalescing (Signal vs Context)
+**Where:** `RulesIngestion/enrichment/coalescer.py`
+- `min_chars=400`
+- `max_chars=800`
+
+These control chunk granularity. Too small loses context; too large blurs deterministic edges.
+
+### 6) Canonical Entity Normalization + Alias Resolution
+**Where:** `RulesIngestion/enrichment/graph_builder.py`
+- `_normalize_entity_name()`: canonical string cleanup.
+- `_canonical_entity_id()`: stable entity IDs.
+- `_build_entity_alias_map()`: merges config + derived aliases.
+- `_extract_alias_pairs()`: inline alias patterns.
+- `_add_entity_index()`: exact-match lookup.
+
+**Graph limits (stability controls):**
+- `RELATION_TARGET_LIMIT = 4`
+- `CHUNK_ADJACENCY_LIMIT = 12`
+
+These directly affect deterministic linkage and cross-book matching readiness.
+
+### 7) Evaluation Metrics That Enforce Traceability
+**Where:** `RulesIngestion/evaluation/metrics.py`, `evaluation/scoring_engine.py`
+- `MRR` and `hit@k` for retrieval quality.
+- Baseline vs traversal delta.
+- Reachability monotonicity (pool recall should be >= final recall).
+- Cross-book reachability.
+- Expanded-gold reason counts (section vs graph depth).
+- Coverage (evaluated queries / total).
+
+These metrics are the contract for traceable retrieval, not just overall accuracy.
+
+**Metric definitions (matches report output):**
+- **Coverage**: fraction of evaluated queries where an expected chunk appears in the top‑K results.
+- **MRR**: mean reciprocal rank of the first expected chunk.
+- **hit@k**: fraction of queries where an expected chunk is found in the top‑k.
+- **Cross-book contamination**: fraction of top‑k results that come from the wrong book.
+- **Avg candidate fraction**: mean `allowed_chunks / total_chunks_in_doc` when TOC gating is enabled.
+- **Missing scope count**: queries where TOC scope could not be derived, so the full document was used.
+- **Traversal baseline**: score without TOC gating (full document within the book).
+- **TOC-gated (compare)**: score with TOC gating applied.
+- **Delta**: TOC-gated minus baseline (positive means gating improved rank quality).
+- **Rank monotonicity**: regressions/improvements when gating changes a baseline hit into a miss (or vice‑versa).
+
+**Compiler framing (priority order):**
+1. Coverage + monotonicity (soundness: don’t miss correct answers).
+2. Precision improvements (MRR, hit@1) only after coverage is stable.
+
 ## Adaptive Review and Confidence Gates
 The pipeline produces `*.metrics.json`, which drives a dynamic review config:
 - JSON block counts vs markdown regex counts
@@ -234,6 +372,7 @@ These are targets for the **first-pass benchmark** on a single ruleset.
 - **Embedding Reuse**: `--reuse-embeddings` reuses stored vectors for the same `run_id + model_id` when available.
 - **Baseline Delta Reporting**: Use `--baseline-report <report.json>` to add a delta section to evaluation reports.
 - **Best-Practice Eval Shortcut**: Use `--best-practice-eval` to enable expanded gold + `--both`.
+- **Chapter Routing Rerank Diagnostic**: Reports now include rerank change counts and rate.
 - **Current Best bge-m3 Baseline (Strict, no boost)**:
   - Intro slice (docs `014-029`, `058-073`, `098-113`): MRR `0.8460`, hit@1 `0.7951`, hit@3 `0.8716`, hit@5 `0.9012`, hit@10 `0.9531`.
 - **Non-Oracle Graph Boost (Top-Seeded)**:
@@ -247,19 +386,36 @@ These are targets for the **first-pass benchmark** on a single ruleset.
   - `top_k=50` was consistently stronger than `top_k=20` on MRR for non-oracle boosting.
   - **Shortcut:** use `--best-practice-boost` to apply the defaults above.
 
-- **LLM Chapter Summary Routing (Full-Query Sweep, 2026-01-24)**:
-  - Run: `2026-01-23-full-source`, model `nomic-embed-text-v2`, embeddings reused.
-  - Summary source: LLM map-reduce summaries (`chapter_summary_embeddings_llm.json`).
-  - Results (Expanded Gold):
-    - `top_n=3`: Coverage `0.3891`, MRR `0.8522`, hit@1 `0.8004`
-      - Report: `.../reports/chapters-nomic/nomic-embed-text-v2/evaluation_expanded_queries_20260123-222656.md`
-    - `top_n=5`: Coverage `0.4795`, MRR `0.8301`, hit@1 `0.7785`
-      - Report: `.../reports/chapters-nomic/nomic-embed-text-v2/evaluation_expanded_queries_20260123-222916.md`
-    - `top_n=8`: Coverage `0.5937`, MRR `0.8112`, hit@1 `0.7548`
-      - Report: `.../reports/chapters-nomic/nomic-embed-text-v2/evaluation_expanded_queries_20260123-223148.md`
-    - `top_n=12`: Coverage `0.7044`, MRR `0.7931`, hit@1 `0.7339`
-      - Report: `.../reports/chapters-nomic/nomic-embed-text-v2/evaluation_expanded_queries_20260123-223434.md`
-  - Tradeoff: higher `top_n` raises coverage but lowers MRR; expanded-gold deltas are small but positive (~0.004–0.007).
+- **TOC Traversal Baselines (Strict, missing_scope=0, 2026-01-26)**:
+  - PlayerCore (`2026-01-25_19-16-02`): Coverage `1.0000`, MRR `0.9628`, hit@1 `0.9508`, hit@3 `0.9717`, hit@5 `0.9795`, hit@10 `0.9915`.
+  - GalaxyGuide (`2026-01-25_18-37-56`): Coverage `1.0000`, MRR `0.9823`, hit@1 `0.9770`, hit@3 `0.9844`, hit@5 `0.9889`, hit@10 `0.9948`.
+  - GMCore (`2026-01-23_23-47-32`): Coverage `1.0000`, MRR `0.9700`, hit@1 `0.9576`, hit@3 `0.9879`, hit@5 `0.9939`, hit@10 `0.9970`.
+  - AlienCore (`2026-01-24_23-51-33`): Coverage `1.0000`, MRR `0.9944`, hit@1 `0.9918`, hit@3 `0.9973`, hit@5 `0.9986`, hit@10 `1.0000`.
+
+- **TOC Traversal Delta vs Baseline (Strict, 2026-01-26)**:
+  - All runs now have `missing_scope=0`; deltas reflect true TOC gating.
+  - **Why it improved:** section scopes are now reliably populated (TOC paths + document fallback),
+    so retrieval ranks within tight, structurally valid candidate sets instead of full-document pools.
+
+| Book | Avg Candidate Fraction | Δ MRR | Δ hit@1 | Δ hit@3 | Δ hit@5 | Δ hit@10 |
+| --- | --- | --- | --- | --- | --- | --- |
+| PlayerCore | `0.0580` | `+0.2634` | `+0.3039` | `+0.2483` | `+0.2180` | `+0.1800` |
+| GalaxyGuide | `0.0367` | `+0.0853` | `+0.1100` | `+0.0721` | `+0.0527` | `+0.0327` |
+| GMCore | `0.0649` | `+0.0719` | `+0.0758` | `+0.0758` | `+0.0758` | `+0.0667` |
+| AlienCore | `0.0378` | `+0.1288` | `+0.1685` | `+0.1094` | `+0.0713` | `+0.0462` |
+
+### Traversal vs Chapter Routing (Interpretation + Non-Philosophy Leverage)
+- **Finding:** Chapter routing improves rank metrics inside its candidate set but **cuts coverage in half**.
+  - The routing delta is positive for MRR/hit@k but strongly negative for coverage.
+  - This violates the ingestion philosophy if used as a pre-traversal gate, because it removes eligible content.
+- **Interpretation:** Routing is a *ranking prior*, not an eligibility filter.
+  - Treat chapter routing as a hint for **where to focus traversal scoring**, not as a constraint that blocks chapters.
+  - Rerank is currently inert (0/3606 changes), so the summary embedding stage is doing all the work.
+- **Allowed leverage (philosophy-aligned):**
+  - **Traversal-first eligibility:** Run traversal to define the eligible set, then apply routing scores *within* that set.
+  - **Graph boost seeding:** Use routed chapters to seed graph-boost sources (top seeds) while still allowing traversal to include other chapters.
+  - **Budget allocation:** Use routing to allocate evaluation budget (e.g., more re-rank depth) without removing chapters from eligibility.
+- **Not allowed:** Using chapter routing to *prune* traversal candidates before eligibility is established.
 
 ## Deterministic Edge Discovery + Traversal (New Learnings)
 These were validated in recent runs with GMCore/PlayerCore outputs.
@@ -308,6 +464,8 @@ Resolution should be:
 - `references_named_section` (traversal, only with explicit numbering or exact heading match)
 - `mentions_section` (hint only, never traversal)
 
+**Current enforcement status:** graph adjacency is still unfiltered; hints/heuristic edges can influence traversal until we restrict adjacency to traversal-safe relations.
+
 ### Edge Metrics to Track
 - **DEP (Deterministic Edge Precision)** = unique / (unique + multi)
 - **TCG (Traversal Coverage Gain)** = recall_with_edges - recall_without_edges
@@ -332,6 +490,7 @@ per run (see `*.edge_eval.json`).
 ### Key Interpretation Notes
 - Low `references_section` resolution is expected and correct; most section mentions are not deterministic.
 - Routing can trade precision for recall; use hybrid rerank to recover precision, but accept remaining summary lossiness.
+- Page-reference heuristics are expected to lift `references_page` DEP primarily in Appendix-style sections; do not expect non-Appendix chapters to show a large DEP increase yet.
 
 ## Baselines Across Time (Full-Source / Merged)
 Use these as the canonical full-source references for deltas.
