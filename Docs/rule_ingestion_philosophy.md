@@ -95,6 +95,38 @@ If a rule cannot be made deterministic, it must not compile.
 
 ---
 
+## Retrieval Discipline (Post-Ingestion)
+
+Retrieval is downstream of ingestion artifacts and must remain bounded:
+
+1. **Structural eligibility traversal**
+   - Structural + deterministic edges only
+   - Defines what is allowed to be considered
+2. **Semantic narrowing**
+   - Ranks within the eligible set
+   - Cannot introduce new regions
+3. **Fine-grained search**
+   - Uses tags, summaries, embeddings
+   - Still constrained by eligibility
+4. **LLM synthesis**
+   - Produces explanations and citations
+   - Makes no retrieval decisions
+
+If adding context makes answers worse, traversal has already failed.
+Not embeddings. Not the LLM. Traversal.
+
+---
+
+## Summaries Are Interfaces, Not Shortcuts
+
+Chapter summaries are lossy by design:
+- They may exclude chapters
+- They must not include new ones
+
+They belong after traversal, never before it.
+
+---
+
 ## Why This Document Exists
 
 This document exists to be reread at moments of temptation:

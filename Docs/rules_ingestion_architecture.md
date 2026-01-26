@@ -52,6 +52,27 @@ Key invariants (enforced by pipeline + guidebook):
 
 ---
 
+## Retrieval Layers (Post-Ingestion)
+
+Retrieval must remain bounded by structure:
+
+1. **Structural eligibility traversal**
+   - Uses only structural + deterministic edges
+   - Purpose: eligibility, not relevance
+2. **Semantic narrowing**
+   - Hybrid dense + sparse retrieval
+   - Ranks within eligible set
+3. **Fine-grained search**
+   - Uses tags, summaries, embeddings, soft signals
+4. **LLM synthesis**
+   - Reasoning and citation only
+   - No retrieval decisions
+
+Traversal is a discipline: structure restricts eligibility, semantics ranks within it.
+Summaries are interfaces, not shortcuts, and must follow traversal.
+
+---
+
 ## Core Modules
 
 ### Orchestration

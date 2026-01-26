@@ -133,6 +133,15 @@ Anything that optimizes against a different set of values is out of scope.
 - Maximum state reads per rule known in advance
 - No dynamic graph traversal at runtime
 
+### Retrieval Health (Post-Ingestion)
+- **Traversal coverage is correct** (eligible set contains required sources)
+- **Edge precision is high** (eligibility excludes unrelated sections)
+- **Recall improves monotonically** as context size increases
+- **Answer quality does not regress** when adding eligible context
+
+If adding context makes answers worse, traversal has already failed.
+Not embeddings. Not the LLM. Traversal.
+
 ### Human Intervention Cost
 - Number of manual corrections per rulebook
 - Time to resolve ambiguity hotspots

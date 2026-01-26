@@ -43,6 +43,45 @@ Each stage consumes the artifacts of the previous stage. No stage may reach back
 
 ---
 
+## Retrieval Layers (Post-Ingestion)
+
+After ingestion artifacts exist, retrieval is layered and constrained:
+
+1. **Structural eligibility traversal**
+   - Uses only structural + deterministic edges
+   - Purpose: eligibility, not relevance
+   - Output: bounded candidate set
+2. **Semantic narrowing (bounded)**
+   - Hybrid dense + sparse retrieval
+   - Ranking allowed within the eligible set
+3. **Fine-grained semantic search**
+   - Hybrid dense + sparse again
+   - Uses tags, summaries, embeddings, soft signals
+4. **LLM synthesis**
+   - Reasoning, explanation, citation
+   - No retrieval decisions here
+
+This ordering is mandatory. Semantics may rank inside eligibility but never expand it.
+
+---
+
+## Clarifications
+
+### Traversal Happens More Than Once
+Traversal is a discipline, not a single step:
+- Structural traversal defines eligibility
+- Semantic narrowing ranks within eligibility
+- Final ranking is not traversal
+
+### Chapter Summaries Are Interfaces, Not Shortcuts
+Summaries are lossy by design:
+- They may exclude chapters
+- They must not include new ones
+
+Summaries belong after structural traversal, not before.
+
+---
+
 ## Stage A — Structural Ingestion
 
 ### Responsibility
