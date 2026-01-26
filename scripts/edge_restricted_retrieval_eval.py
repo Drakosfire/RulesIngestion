@@ -350,6 +350,8 @@ def _evaluate_queries(
                     allowed_chunks.update(scope)
                 else:
                     allowed_chunks.add(target)
+                if relation == "mentions_term":
+                    allowed_chunks.add(source_id)
 
         if not allowed_chunks:
             continue
@@ -526,6 +528,8 @@ def _evaluate_edge_seeded_queries(
                     allowed_chunks.update(scope)
                 else:
                     allowed_chunks.add(target)
+                if relation == "mentions_term":
+                    allowed_chunks.add(seed_source_id)
 
         if not allowed_chunks:
             continue
