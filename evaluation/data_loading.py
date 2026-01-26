@@ -47,7 +47,15 @@ def _build_section_path_from_hierarchy(
 def extract_chunks(outputs: Dict[str, Any], chunk_source: str) -> List[Dict[str, Any]]:
     payload = outputs.get(chunk_source) or {}
     chunks = payload.get("chunks") or []
-    chunk_lookup = {chunk.get("id"): chunk for chunk in chunks if chunk.get("id")}
+    chunk_lookup: Dict[str, Dict[str, Any]] = {}
+    for chunk in chunks:
+        chunk_id = chunk.get("id")
+        if not chunk_id:
+            continue
+        chunk_lookup[chunk_id] = chunk
+        if isinstance(chunk_id, str) and "::" in chunk_id:
+            _, suffix = chunk_id.split("::", 1)
+            chunk_lookup.setdefault(suffix, chunk)
     normalized: List[Dict[str, Any]] = []
     for chunk in chunks:
         text = chunk.get("text") or chunk.get("content") or ""
