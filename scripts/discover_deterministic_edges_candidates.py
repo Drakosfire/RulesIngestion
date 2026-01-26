@@ -16,6 +16,32 @@ from scripts.discover_deterministic_edges_text import (
 )
 
 _TERM_BOUNDARY_TEMPLATE = r"(?<!\w){term}(?!\w)"
+_TERM_PREFIX_STOPLIST = {
+    "a",
+    "an",
+    "and",
+    "as",
+    "at",
+    "but",
+    "by",
+    "for",
+    "from",
+    "in",
+    "into",
+    "nor",
+    "of",
+    "on",
+    "or",
+    "over",
+    "per",
+    "so",
+    "the",
+    "to",
+    "with",
+    "within",
+    "without",
+    "yet",
+}
 
 
 def _count_keywords(text: str, keyword_counts: Counter) -> None:
@@ -159,6 +185,22 @@ def _get_defines_term_pattern() -> re.Pattern:
     raise ValueError("defines_term pattern missing from REFERENCE_PATTERNS")
 
 
+def _is_plausible_term_label(raw_label: str) -> bool:
+    normalized = _normalize_title(raw_label)
+    if not normalized or len(normalized) < 4:
+        return False
+    tokens = normalized.split()
+    if not tokens or len(tokens) > 6:
+        return False
+    if tokens[0] in _TERM_PREFIX_STOPLIST:
+        return False
+    if tokens[-1] in _TERM_PREFIX_STOPLIST:
+        return False
+    if len(normalized) > 80:
+        return False
+    return True
+
+
 def _collect_defined_terms(
     chunks: List[Dict[str, Any]],
 ) -> Tuple[Dict[str, Dict[str, str]], Dict[str, Set[str]]]:
@@ -174,9 +216,9 @@ def _collect_defined_terms(
             continue
         for match in pattern.finditer(text):
             raw_label = match.group("label") if "label" in match.groupdict() else ""
-            normalized = _normalize_title(raw_label)
-            if not normalized or len(normalized) < 4:
+            if not _is_plausible_term_label(raw_label):
                 continue
+            normalized = _normalize_title(raw_label)
             term_id = f"canon:term:{normalized}"
             if normalized not in term_index:
                 term_index[normalized] = {
@@ -356,7 +398,7 @@ def _extract_candidates(
                 target_type = entry["target_type"]
                 if target_type == "term":
                     normalized_term = _normalize_title(label)
-                    if not normalized_term:
+                    if not _is_plausible_term_label(label):
                         continue
                     term_id = f"canon:term:{normalized_term}"
                     candidates.append(
@@ -446,6 +488,8 @@ def _extract_candidates(
                 is_ambiguous = len(resolved_targets_sorted) > 1 and (
                     relation_override or entry["relation"]
                 ) in STRICT_RELATIONS
+                if target_type == "page" and not resolved_targets_sorted:
+                    continue
                 candidates.append(
                     {
                         "from": chunk.get("id"),

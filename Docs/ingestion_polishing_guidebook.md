@@ -261,8 +261,104 @@ These are targets for the **first-pass benchmark** on a single ruleset.
       - Report: `.../reports/chapters-nomic/nomic-embed-text-v2/evaluation_expanded_queries_20260123-223434.md`
   - Tradeoff: higher `top_n` raises coverage but lowers MRR; expanded-gold deltas are small but positive (~0.004–0.007).
 
+## Deterministic Edge Discovery + Traversal (New Learnings)
+These were validated in recent runs with GMCore/PlayerCore outputs.
+
+### Pipeline Refactor Learnings (2026-01-25)
+- **Split enrichment + benchmark into modules** so orchestration is isolated from heavy logic.
+- **Standard entrypoint**: use `ingest.py` for full runs (auto-config now tolerates config failures).
+- **Traversal is core**: `--profile full` always runs edge-restricted evaluation for DEP/TCG.
+
+### LLM Config Generation Guardrails
+- Placeholder detection should **only scan values**, not keys (avoids false hits like `entity_aliases`).
+- `Prompt with {label}` is considered a placeholder; when seen, validation fails and the run should continue if `--auto-config` is enabled.
+- `ingest.py` now passes `--allow-config-failure` automatically when `--auto-config` is used.
+
+### OCR/Spelling Gate (Pre-Edge Emission)
+- Run OCR/spelling gates **before** edge emission to catch bad extractions.
+- Metrics tracked per doc:
+  - Unresolved strict reference rate (must be below threshold).
+  - Suspect token rate (non-alpha noise).
+  - Near-duplicate heading rate (edit distance ≤ 1).
+- Gate failures should block edge emission **unless explicitly overridden**.
+
+### Ambiguity Handling (Strict Emission Only)
+- **Ambiguous targets (multi-resolved)** are never emitted as traversal edges.
+- Only `resolution_count == 1` edges are merged into the graph.
+
+### Deterministic Edges vs Hints (Do Not Conflate)
+- **Traversal edges must be monotonic**: following them can add irrelevant info but must never add wrong info.
+- **Hints are non-emitting**: `mentions_section` is a signal bucket, not a traversal edge.
+- **Chapter references are boundary edges**: use them to restrict search scope, not as jump targets.
+
+### Anchor Normalization (Required Before Edge Emission)
+Resolution failures were caused by **aliasing**, not fuzziness. Authors reference human-friendly names.
+Deterministic anchors must be generated per target:
+- Exact heading/table/figure text
+- De-numbered heading variants
+- Simple canonical phrasings (e.g., "the <heading> section")
+
+Resolution should be:
+`cue -> anchor index -> chunk` (not `cue -> heading index`)
+
+### Edge Classes to Emit (Strict)
+- `references_chapter` (boundary only)
+- `references_table` (traversal)
+- `references_figure` (traversal)
+- `references_named_section` (traversal, only with explicit numbering or exact heading match)
+- `mentions_section` (hint only, never traversal)
+
+### Edge Metrics to Track
+- **DEP (Deterministic Edge Precision)** = unique / (unique + multi)
+- **TCG (Traversal Coverage Gain)** = recall_with_edges - recall_without_edges
+- **Reachability Monotonicity**: track chapter recall (pool + final), not rank MRR
+
+### Graph Evaluation Metrics (Edge-Restricted)
+These metrics are produced by `scripts/edge_restricted_retrieval_eval.py` and are tracked
+per run (see `*.edge_eval.json`).
+- **queries_total**: number of evaluation queries considered.
+- **queries_with_edges**: queries whose seed chunk has at least one traversable edge.
+- **edge_restricted_recall**: recall when retrieval is limited to traversable edges.
+- **baseline_recall**: recall when edges exist but no traversal constraint is applied.
+- **edge_restricted_tcg**: `edge_restricted_recall - baseline_recall` (gain from traversal).
+- **avg_candidate_fraction**: average allowed chunk fraction per doc
+  (`allowed_chunks / total_chunks_in_doc`); lower means tighter scope.
+- **traversal_class_counts**: counts of edges by traversal policy class
+  (`traversal`, `boundary`, `hint`).
+- **dep_by_relation**: per-relation counts of `unique/multi/zero` resolutions and DEP.
+- **soft_signal_usefulness**: sanity check for hint edges (e.g., `mentions_section`)
+  showing how often hints align with section paths.
+
+### Key Interpretation Notes
+- Low `references_section` resolution is expected and correct; most section mentions are not deterministic.
+- Routing can trade precision for recall; use hybrid rerank to recover precision, but accept remaining summary lossiness.
+
 ## Baselines Across Time (Full-Source / Merged)
 Use these as the canonical full-source references for deltas.
+
+- **2026-01-25 (GalaxyGuide, merged-full, dual-scope eval)**  
+  - Run: `2026-01-25_13-30-10`  
+  - Eval: `merged-full.dualscope.edge_eval.json`  
+  - queries_total `268`, queries_with_edges `32`  
+  - edge_restricted_recall `1.0`, baseline_recall `1.0`, TCG `0.0`  
+  - avg_candidate_fraction `0.0112`  
+  - Expanded MRR `0.7145` (same run, expanded-gold report below)  
+  - dep_by_relation: mentions_term DEP `1.0`, defines_term DEP `1.0`,
+    references_page DEP `0.0`  
+
+- **2026-01-25 (GalaxyGuide, merged, expanded gold, rerun after pruning)**  
+  - Run: `2026-01-25_18-37-56`  
+  - Model: `nomic-embed-text-v2`  
+  - Scope: merged evaluation  
+  - Expanded MRR `0.8933`, hit@1 `0.8529`, hit@3 `0.9198`, hit@5 `0.9465`, hit@10 `0.9747`  
+  - Report: `RulesIngestion/Rules/StarFinder2e/GalaxyGuide/outputs/runs/2026-01-25_18-37-56/enriched/reports/full-merged-nomic/nomic-embed-text-v2/evaluation_expanded_queries_20260125-185610.md`
+
+- **2026-01-25 (GalaxyGuide, full pipeline, expanded gold)**  
+  - Run: `2026-01-25_13-30-10`  
+  - Model: `nomic-embed-text-v2`  
+  - Scope: merged full-source evaluation  
+  - Expanded MRR `0.7145`, hit@1 `0.4664`, hit@3 `0.9515`, hit@5 `0.9776`, hit@10 `0.9963`  
+  - Report: `RulesIngestion/Rules/StarFinder2e/GalaxyGuide/outputs/runs/2026-01-25_13-30-10/reports/chapters-llm/nomic-embed-text-v2/evaluation_expanded_queries_20260125-135902.md`
 
 - **2026-01-22 (Baseline, merged, expanded gold)**  
   - Run: `2026-01-22_21-59-56`  
