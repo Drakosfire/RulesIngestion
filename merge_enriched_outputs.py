@@ -16,6 +16,7 @@ EDGE_RELATIONS = {
     "mentions_section",
     "in_section",
     "defines_term",
+    "mentions_term",
 }
 
 

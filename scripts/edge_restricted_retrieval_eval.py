@@ -17,6 +17,7 @@ EDGE_RELATIONS_STRICT = {
     "references_page",
     "in_section",
     "defines_term",
+    "mentions_term",
 }
 EDGE_RELATIONS_BOUNDARY = {"references_chapter"}
 EDGE_RELATIONS_HINT = {"mentions_section"}
@@ -29,6 +30,7 @@ TRAVERSAL_POLICY = {
     "mentions_section": "hint",
     "in_section": "traversal",
     "defines_term": "traversal",
+    "mentions_term": "traversal",
 }
 
 

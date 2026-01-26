@@ -15,6 +15,8 @@ from scripts.discover_deterministic_edges_text import (
     _normalize_title,
 )
 
+_TERM_BOUNDARY_TEMPLATE = r"(?<!\w){term}(?!\w)"
+
 
 def _count_keywords(text: str, keyword_counts: Counter) -> None:
     lowered = text.lower()
@@ -150,6 +152,50 @@ def _score_page_candidate(
     return score, block_bonus
 
 
+def _get_defines_term_pattern() -> re.Pattern:
+    for entry in REFERENCE_PATTERNS:
+        if entry.get("relation") == "defines_term":
+            return entry["regex"]
+    raise ValueError("defines_term pattern missing from REFERENCE_PATTERNS")
+
+
+def _collect_defined_terms(
+    chunks: List[Dict[str, Any]],
+) -> Tuple[Dict[str, Dict[str, str]], Dict[str, Set[str]]]:
+    pattern = _get_defines_term_pattern()
+    term_index: Dict[str, Dict[str, str]] = {}
+    term_sources: Dict[str, Set[str]] = {}
+    for chunk in chunks:
+        chunk_id = chunk.get("id")
+        if not chunk_id:
+            continue
+        text = chunk.get("text", "") or ""
+        if not text.strip():
+            continue
+        for match in pattern.finditer(text):
+            raw_label = match.group("label") if "label" in match.groupdict() else ""
+            normalized = _normalize_title(raw_label)
+            if not normalized or len(normalized) < 4:
+                continue
+            term_id = f"canon:term:{normalized}"
+            if normalized not in term_index:
+                term_index[normalized] = {
+                    "term_id": term_id,
+                    "raw": raw_label or normalized,
+                }
+            term_sources.setdefault(chunk_id, set()).add(normalized)
+    return term_index, term_sources
+
+
+def _build_term_patterns(term_index: Dict[str, Dict[str, str]]) -> List[Tuple[str, str, re.Pattern]]:
+    patterns: List[Tuple[str, str, re.Pattern]] = []
+    for normalized, payload in term_index.items():
+        token_pattern = re.escape(normalized).replace(r"\ ", r"\s+")
+        pattern = re.compile(_TERM_BOUNDARY_TEMPLATE.format(term=token_pattern), re.IGNORECASE)
+        patterns.append((normalized, payload.get("raw", normalized), pattern))
+    return patterns
+
+
 def _build_page_reference_debug(
     candidates: List[Dict[str, Any]],
     page_text_index: Dict[str, List[Tuple[str, Optional[str], Optional[str], Optional[str]]]],
@@ -237,6 +283,9 @@ def _extract_candidates(
     if section_header_index is None:
         section_header_index = {}
 
+    term_index, term_sources = _collect_defined_terms(chunks)
+    term_patterns = _build_term_patterns(term_index)
+
     for chunk in chunks:
         text = chunk.get("text", "") or ""
         if not text.strip():
@@ -270,6 +319,35 @@ def _extract_candidates(
                     "is_ambiguous": False,
                 }
             )
+
+        if term_patterns and chunk_id:
+            skip_terms = term_sources.get(chunk_id, set())
+            for normalized, raw_label, pattern in term_patterns:
+                if normalized in skip_terms:
+                    continue
+                if not pattern.search(text):
+                    continue
+                term_id = f"canon:term:{normalized}"
+                candidates.append(
+                    {
+                        "from": chunk_id,
+                        "source_document": doc_id,
+                        "page": chunk.get("page"),
+                        "content_kind": chunk.get("content_kind"),
+                        "section_path": chunk.get("section_path"),
+                        "relation": "mentions_term",
+                        "cue": raw_label,
+                        "cue_title": "",
+                        "parsed_target": {
+                            "type": "term",
+                            "label": normalized,
+                            "raw": raw_label,
+                        },
+                        "resolved_targets": [term_id],
+                        "resolution_count": 1,
+                        "is_ambiguous": False,
+                    }
+                )
 
         for entry in REFERENCE_PATTERNS:
             for match in entry["regex"].finditer(text):

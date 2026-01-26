@@ -167,6 +167,32 @@ def test_extract_candidates_adds_defines_term_edge() -> None:
     assert term_candidates[0]["resolved_targets"] == ["canon:term:drift travel"]
 
 
+def test_extract_candidates_adds_mentions_term_edge() -> None:
+    doc_id = "doc"
+    chunks = [
+        _chunk(
+            "doc/page/1/chunk/def-1",
+            "Gravity well means a dense gravitational region.",
+            block_type="Text",
+            page=1,
+        ),
+        _chunk(
+            "doc/page/1/chunk/text-2",
+            "Ships avoid the gravity well when possible.",
+            block_type="Text",
+            page=1,
+        ),
+    ]
+    indices = dde._build_indices(chunks, doc_id, page_offset=None)
+    page_text_index = dde._build_page_text_index(chunks, page_offset=None)
+
+    candidates, _ = dde._extract_candidates(chunks, doc_id, indices, page_text_index)
+
+    mention_candidates = [c for c in candidates if c.get("relation") == "mentions_term"]
+    assert mention_candidates
+    assert mention_candidates[0]["resolved_targets"] == ["canon:term:gravity well"]
+
+
 def test_extract_candidates_adds_in_section_edge() -> None:
     doc_id = "doc"
     chunks = [
