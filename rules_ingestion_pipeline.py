@@ -53,7 +53,12 @@ from llm_enrichment import (
     run_paragraph_enrichment,
     run_review_enrichment,
 )
-from llm_config_generator import build_config_prompt, generate_ruleset_config_payload
+from llm_config_generator import (
+    build_config_prompt,
+    generate_ruleset_config_payload,
+    normalize_llm_payload,
+    validate_config_payload,
+)
 from diagnostics_store import (
     DiagnosticsRetentionPolicy,
     GenerationDiagnostics,
@@ -100,7 +105,7 @@ def run_marker(
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        print(f"✅ Marker extraction complete")
+        print("✅ Marker extraction complete")
         if result.stdout:
             print(result.stdout)
     except subprocess.CalledProcessError as e:
@@ -167,6 +172,7 @@ def resolve_ruleset_config(
     config_output_dir: Optional[str] = None,
     source_fingerprint: Optional[str] = None,
     force_regenerate: bool = False,
+    allow_config_failure: bool = False,
     fetch_latest_profile: Callable[[str, str], Optional[RulesetProfile]] = fetch_latest_ruleset_profile,
     fetch_latest_config: Callable[[str, str], Optional[RulesetConfiguration]] = fetch_latest_ruleset_config,
     save_profile: Callable[[RulesetProfile, str], str] = save_ruleset_profile,
@@ -214,13 +220,30 @@ def resolve_ruleset_config(
             )
         profile_id = save_profile(profile, mongo_uri)
         print(f"🧾 Saved ruleset profile (ruleset={ruleset_id}, profile_id={profile_id})")
-        config = generator(profile)
+        try:
+            config = generator(profile)
+        except ValueError as exc:
+            if allow_config_failure:
+                print(
+                    "⚠️  Ruleset config generation failed; continuing without config "
+                    f"(ruleset={ruleset_id}, reason={exc})"
+                )
+                return None
+            raise
+        if config is None:
+            if allow_config_failure:
+                print(
+                    "⚠️  Ruleset config generation returned empty config; "
+                    f"continuing without config (ruleset={ruleset_id})"
+                )
+                return None
+            raise ValueError("Ruleset config generation returned no config.")
         config.version = _next_config_version(latest_config.version if latest_config else None)
         config.source_fingerprint = source_fingerprint
         config_id = save_config(config, mongo_uri)
         print(f"✅ Saved ruleset config (ruleset={ruleset_id}, config_id={config_id})")
 
-    if config_output_dir:
+    if config_output_dir and config:
         version_label = _format_version_label(config.version)
         output_path = Path(config_output_dir) / ruleset_id / f"{version_label}.config.json"
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -284,7 +307,9 @@ def generate_config_with_llm(
         return payload
 
     def validator(payload: Dict[str, Any]) -> RulesetConfiguration:
-        return RulesetConfiguration(**payload)
+        normalized = normalize_llm_payload(profile, payload)
+        validated = validate_config_payload(profile, normalized)
+        return RulesetConfiguration(**validated)
 
     config, diagnostics = run_config_generation_with_diagnostics(
         profile=profile,
@@ -374,6 +399,7 @@ def process_pdf(
     llm_review: bool = False,
     llm_review_limit: Optional[int] = None,
     force_regenerate_config: bool = False,
+    allow_config_failure: bool = False,
 ) -> Tuple[List[EnrichedChunk], Graph]:
     """Full pipeline: PDF → Marker → Enrich → Graph."""
     pdf_path = Path(pdf_path)
@@ -408,7 +434,7 @@ def process_pdf(
 
     resolved_config: Optional[RulesetConfiguration] = None
     if auto_config:
-        resolved_llm_model = llm_model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        resolved_llm_model = llm_model or os.getenv("OPENAI_MODEL", "gpt-5.2-codex")
         resolved_api_key = llm_api_key or os.getenv("OPENAI_API_KEY")
         print(f"🤖 Generating ruleset config via LLM for {resolved_ruleset_id}...")
         resolved_config = resolve_ruleset_config(
@@ -418,6 +444,7 @@ def process_pdf(
             config_output_dir=str(output_dir / CONFIGS_DIRNAME),
             source_fingerprint=source_fingerprint,
             force_regenerate=force_regenerate_config,
+            allow_config_failure=allow_config_failure,
             generator=lambda profile: generate_config_with_llm(
                 profile,
                 mongo_uri=resolved_mongo_uri or resolve_mongo_uri(mongo_uri),
@@ -464,7 +491,7 @@ def process_pdf(
     graph = build_chunk_graph(
         doc_id,
         enriched_chunks,
-        ruleset_id=resolved_ruleset_id or doc_id,
+        ruleset_id=resolved_ruleset_id,
         resolved_config=resolved_config,
     )
     print(f"   {len(graph.nodes)} nodes, {len(graph.edges)} edges")
@@ -474,6 +501,8 @@ def process_pdf(
     enriched_dir.mkdir(parents=True, exist_ok=True)
     coalesced_chunks = coalesce_chunks(enriched_chunks, min_chars=400, max_chars=800)
 
+    if llm_pre_enrich and not resolved_config:
+        print("⚠️  LLM pre-enrichment skipped (no ruleset config available).")
     if llm_pre_enrich and resolved_config:
         targets = extract_paragraph_targets(enriched_chunks, resolved_config)
         if targets:
@@ -555,6 +584,7 @@ def enrich_existing_chunks(
     llm_review: bool = False,
     llm_review_limit: Optional[int] = None,
     force_regenerate_config: bool = False,
+    allow_config_failure: bool = False,
 ) -> Tuple[List[EnrichedChunk], Graph]:
     """Enrich existing Marker chunks without re-running extraction."""
     chunks_path = Path(chunks_path)
@@ -575,7 +605,7 @@ def enrich_existing_chunks(
 
     resolved_config: Optional[RulesetConfiguration] = None
     if auto_config:
-        resolved_llm_model = llm_model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        resolved_llm_model = llm_model or os.getenv("OPENAI_MODEL", "gpt-5.2-codex")
         resolved_api_key = llm_api_key or os.getenv("OPENAI_API_KEY")
         print(f"🤖 Generating ruleset config via LLM for {resolved_ruleset_id}...")
         resolved_config = resolve_ruleset_config(
@@ -585,6 +615,7 @@ def enrich_existing_chunks(
             config_output_dir=str(output_dir / CONFIGS_DIRNAME),
             source_fingerprint=source_fingerprint,
             force_regenerate=force_regenerate_config,
+            allow_config_failure=allow_config_failure,
             generator=lambda profile: generate_config_with_llm(
                 profile,
                 mongo_uri=resolved_mongo_uri or resolve_mongo_uri(mongo_uri),
@@ -622,7 +653,7 @@ def enrich_existing_chunks(
     graph = build_chunk_graph(
         doc_id,
         enriched_chunks,
-        ruleset_id=ruleset_id or doc_id,
+        ruleset_id=resolved_ruleset_id,
         resolved_config=resolved_config,
     )
     print(f"   {len(graph.nodes)} nodes, {len(graph.edges)} edges")
@@ -631,6 +662,8 @@ def enrich_existing_chunks(
     enriched_dir = output_dir / "enriched"
     coalesced_chunks = coalesce_chunks(enriched_chunks, min_chars=400, max_chars=800)
 
+    if llm_pre_enrich and not resolved_config:
+        print("⚠️  LLM pre-enrichment skipped (no ruleset config available).")
     if llm_pre_enrich and resolved_config:
         targets = extract_paragraph_targets(enriched_chunks, resolved_config)
         if targets:
@@ -683,7 +716,7 @@ def enrich_existing_chunks(
             doc_id,
         )
 
-    output_payloads = write_enrichment_outputs(
+    _output_payloads = write_enrichment_outputs(
         enriched_dir=enriched_dir,
         doc_id=doc_id,
         enriched_chunks=enriched_chunks,
@@ -788,6 +821,11 @@ Examples:
         action="store_true",
         help="Force ruleset config regeneration even if existing config is valid"
     )
+    parser.add_argument(
+        "--allow-config-failure",
+        action="store_true",
+        help="Continue if config generation fails (useful for low-signal PDFs)"
+    )
     
     args = parser.parse_args()
     
@@ -805,6 +843,7 @@ Examples:
             llm_review=args.llm_review,
             llm_review_limit=args.llm_review_limit,
             force_regenerate_config=args.force_regenerate_config,
+            allow_config_failure=args.allow_config_failure,
         )
     else:
         process_pdf(
@@ -821,6 +860,7 @@ Examples:
             llm_review=args.llm_review,
             llm_review_limit=args.llm_review_limit,
             force_regenerate_config=args.force_regenerate_config,
+            allow_config_failure=args.allow_config_failure,
         )
     
     print("\n✨ Done!")

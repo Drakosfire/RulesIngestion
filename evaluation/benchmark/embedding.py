@@ -38,15 +38,21 @@ def resolve_chunk_embeddings(
     embedding_reused = False
     embedding_reuse_reason: Optional[str] = None
     model = None
+    unique_chunk_ids = list(dict.fromkeys(chunk_ids))
+    duplicate_count = len(chunk_ids) - len(unique_chunk_ids)
 
     if embedding_cache and "chunk_embeddings" in embedding_cache:
         chunk_embeddings = embedding_cache["chunk_embeddings"]
         embedding_reused = True
         embedding_reuse_reason = "cached"
+        print("♻️ Using cached chunk embeddings from memory")
     elif chunk_embedding_path and os.path.exists(chunk_embedding_path):
+        print(f"📦 Loading chunk embeddings from file: {chunk_embedding_path}")
         stored_ids, stored_embeddings = load_chunk_embeddings_from_file(chunk_embedding_path)
         stored_map = {chunk_id: idx for idx, chunk_id in enumerate(stored_ids)}
-        if len(stored_map) == len(chunk_ids) and all(chunk_id in stored_map for chunk_id in chunk_ids):
+        if len(stored_map) == len(unique_chunk_ids) and all(
+            chunk_id in stored_map for chunk_id in unique_chunk_ids
+        ):
             chunk_embeddings = np.array(
                 [stored_embeddings[stored_map[chunk_id]] for chunk_id in chunk_ids],
                 dtype=np.float32,
@@ -62,11 +68,28 @@ def resolve_chunk_embeddings(
             embed_duration_ms = int((time.time() - embed_start) * 1000)
     else:
         embedding_lookup_id = embedding_run_id or run_id
+        if reuse_embeddings:
+            print(
+                "🔎 Reuse requested: "
+                f"lookup_id={embedding_lookup_id}, model_id={model_spec.model_id}, "
+                f"store={'yes' if store else 'no'}, clear_existing={clear_existing}"
+            )
         if embedding_lookup_id and store and not clear_existing:
             store_ops = _require_store(store, "Reusing embeddings")
+            print(
+                "🗄️ Querying Mongo embeddings: "
+                f"run_id={embedding_lookup_id}, model_id={model_spec.model_id}"
+            )
             stored = store_ops.fetch_chunk_embeddings(embedding_lookup_id, model_spec.model_id, mongo_uri)
             stored_map = {record.get("chunk_id"): record.get("embedding") for record in stored}
-            if len(stored_map) == len(chunk_ids) and all(chunk_id in stored_map for chunk_id in chunk_ids):
+            print(
+                "🧾 Mongo embeddings fetched: "
+                f"records={len(stored)}, unique_ids={len(stored_map)}, "
+                f"expected_ids={len(chunk_ids)}, duplicates={duplicate_count}"
+            )
+            if len(stored_map) == len(unique_chunk_ids) and all(
+                chunk_id in stored_map for chunk_id in unique_chunk_ids
+            ):
                 chunk_embeddings = np.array(
                     [stored_map[chunk_id] for chunk_id in chunk_ids], dtype=np.float32
                 )
@@ -81,6 +104,8 @@ def resolve_chunk_embeddings(
                 embedding_reuse_reason = "embedding_run_id or run_id required for reuse"
             if reuse_embeddings and embedding_lookup_id and not store:
                 embedding_reuse_reason = "store not provided"
+            if reuse_embeddings:
+                print(f"⚠️ Reuse failed: reason={embedding_reuse_reason}")
             model = load_model(model_spec.model_name, trust_remote_code=trust_remote_code)
             embed_start = time.time()
             chunk_embeddings = encode_texts(model, chunk_texts, batch_size=batch_size)

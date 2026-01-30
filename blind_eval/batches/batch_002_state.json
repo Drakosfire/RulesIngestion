@@ -1,0 +1,155 @@
+{
+  "metadata": {
+    "batch_id": "002",
+    "reasoning_mode": "state_and_condition_reasoning",
+    "created_by": "human",
+    "pdf_source": "PZO22003_PlayerCore.pdf",
+    "creation_method": "random_page_selection_targeted",
+    "created_at": "2026-01-29",
+    "notes": "State & condition reasoning batch - tests cross-state semantic edges, condition modifiers, and state interactions",
+    "graph_capabilities_tested": [
+      "state_node_lookup",
+      "cross_state_semantic_edges",
+      "condition_modifier_links",
+      "modifier_stacking",
+      "state_to_behavior_mapping",
+      "minimality_under_state_fanout"
+    ]
+  },
+  "queries": [
+    {
+      "id": "batch_002_01",
+      "source_page": 413,
+      "question": "What penalties do I have while prone?",
+      "reasoning_modes": ["state_reasoning", "condition_modifiers"],
+      "graph_capabilities_tested": [
+        "state_node_lookup",
+        "condition_to_modifiers_edges"
+      ],
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-406-423::/page/13/Text/96",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/15/Text/6"
+      ],
+      "expected_answer_summary": "Prone: You're off-guard (-2 circumstance penalty to AC) and take -2 circumstance penalty to attack rolls. Limited to Crawl and Stand move actions. Standing ends prone.",
+      "notes": "Tests: State definition → modifiers extraction + derived state (off-guard)"
+    },
+    {
+      "id": "batch_002_02",
+      "source_page": 413,
+      "question": "Can I use Stealth to Hide while I'm prone?",
+      "reasoning_modes": ["state_reasoning", "action_constraint"],
+      "graph_capabilities_tested": [
+        "state_to_action_constraints",
+        "action_requirements_check"
+      ],
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-182-209::/page/25/Text/9",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/15/Text/6"
+      ],
+      "expected_answer_summary": "Yes. Hide requires cover/greater cover or concealment. Prone doesn't prevent Hide. Prone only limits you to Crawl and Stand for movement actions, not other actions.",
+      "notes": "Tests: State → action feasibility check. Prone restricts move actions, not general actions."
+    },
+    {
+      "id": "batch_002_03",
+      "source_page": 413,
+      "question": "What changes when I gain the wounded condition?",
+      "reasoning_modes": ["state_reasoning", "state_transition"],
+      "graph_capabilities_tested": [
+        "state_transition_effects",
+        "condition_consequences"
+      ],
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/17/Text/23",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/17/Text/24"
+      ],
+      "expected_answer_summary": "Wounded increases your dying value when you gain dying condition. If you gain dying while wounded, increase dying by your wounded value. Wounded ends when restored to full HP and rest 10 minutes, or via Treat Wounds.",
+      "notes": "Tests: State acquisition → behavioral changes. Wounded modifies dying acquisition."
+    },
+    {
+      "id": "batch_002_04",
+      "source_page": 413,
+      "question": "If I'm dying and taking persistent damage, what happens during my turn?",
+      "reasoning_modes": ["state_reasoning", "multi_state_interaction", "temporal_ordering"],
+      "graph_capabilities_tested": [
+        "multiple_state_interaction",
+        "turn_phase_ordering",
+        "state_resolution_sequence"
+      ],
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/12/Text/25",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/4/ListItem/20",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/15/Text/2",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/15/Text/4"
+      ],
+      "expected_answer_summary": "Start of turn: attempt recovery check (dying). End of turn: take persistent damage. If persistent damage keeps you at/below 0 HP, increase dying by 1. Dangerous: dying recovery happens first, then persistent damage can undo recovery.",
+      "notes": "HARD: Tests multiple simultaneous states + temporal ordering. Critical interaction between dying recovery and persistent damage timing."
+    },
+    {
+      "id": "batch_002_05",
+      "source_page": 413,
+      "question": "Does the concealed condition stack with cover?",
+      "reasoning_modes": ["state_reasoning", "modifier_stacking"],
+      "graph_capabilities_tested": [
+        "modifier_stacking_rules",
+        "condition_interaction"
+      ],
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/2/Text/6",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/11/Text/17",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-406-423::/page/10/Text/9",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-406-423::/page/10/Table/10"
+      ],
+      "expected_answer_summary": "They don't 'stack' additively. Concealed imposes DC 5 flat check before attack roll. Cover gives +2 AC/Reflex bonus (standard) or +4 (greater). Both can apply - attacker must pass flat check AND beat higher AC.",
+      "notes": "Tests: Understanding of different defensive mechanics (flat check vs AC bonus). Both apply but affect different parts of attack resolution."
+    },
+    {
+      "id": "batch_002_06",
+      "source_page": 413,
+      "question": "What penalties apply while blinded?",
+      "reasoning_modes": ["state_reasoning", "condition_modifiers"],
+      "graph_capabilities_tested": [
+        "state_node_lookup",
+        "condition_to_modifiers_edges",
+        "derived_condition_effects"
+      ],
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/11/Text/10"
+      ],
+      "expected_answer_summary": "Blinded: Can't see. All terrain is difficult. Auto-fail Perception checks requiring vision. -4 status penalty to Perception if vision is your only precise sense. Immune to visual effects. You're off-guard. Overrides dazzled.",
+      "notes": "Tests: Condition → multiple modifiers + derived states (off-guard, difficult terrain)"
+    },
+    {
+      "id": "batch_002_07",
+      "source_page": 402,
+      "question": "If I'm reduced to 0 HP by nonlethal damage, do I gain the dying condition?",
+      "reasoning_modes": ["state_reasoning", "damage_type_interaction"],
+      "graph_capabilities_tested": [
+        "damage_type_to_state_mapping",
+        "conditional_state_application"
+      ],
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/12/ListItem/10",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/14/Text/17",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-250-267::/page/6/Text/17"
+      ],
+      "expected_answer_summary": "No. Nonlethal damage that reduces you to 0 HP knocks you unconscious but you don't gain dying. You remain unconscious with 0 HP instead. Different state transition than lethal damage.",
+      "notes": "Tests: Damage type alters state acquisition rules. Nonlethal → unconscious (not dying)."
+    },
+    {
+      "id": "batch_002_08",
+      "source_page": 413,
+      "question": "Can I crawl while prone and does it provoke?",
+      "reasoning_modes": ["state_reasoning", "action_availability", "trigger_conditions"],
+      "graph_capabilities_tested": [
+        "state_to_available_actions",
+        "action_trigger_rules"
+      ],
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-406-423::/page/2/Text/17",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-424-441::/page/15/Text/6"
+      ],
+      "expected_answer_summary": "Yes, Crawl is available while prone (moves 5 feet, requires Speed 10+). Crawl has the move trait, so it triggers reactions that respond to move actions (like Attack of Opportunity).",
+      "notes": "Tests: State → available actions + action traits → triggers. Prone explicitly allows Crawl."
+    }
+  ]
+}

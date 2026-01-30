@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .clause_units import ClauseUnit
-    from .mentions import Mention, MentionType
+    from .mentions import Mention
 
 
 class FactType(Enum):
@@ -24,6 +24,7 @@ class FactType(Enum):
     # Core rule facts
     GRANTS = "grants"           # Subject grants something to target
     REQUIRES = "requires"       # Subject requires condition to use
+    FREQUENCY = "frequency"     # Usage/frequency limits
     MODIFIES = "modifies"       # Subject modifies target value/state
     TRIGGERS = "triggers"       # Subject causes target to happen
     PREVENTS = "prevents"       # Subject prevents target
@@ -57,6 +58,79 @@ class Modality(Enum):
     AUTOMATIC = "automatic"     # Happens without choice
     CONDITIONAL = "conditional" # Depends on condition
     UNKNOWN = "unknown"
+
+
+_NUMERIC_OVERRIDE_TARGET = re.compile(r"^[\s\-\+\u2013\u2014]*\d+(?:\.\d+)?%?[\s]*$")
+_TEMPORAL_OVERRIDE_TARGET = re.compile(
+    r"\bthe\s+previous\s+day\b|\b(previous|next)\s+(day|round|turn)\b",
+    re.IGNORECASE,
+)
+
+_PROCEDURE_TARGETS = [
+    ("procedure:recovery_check", re.compile(r"\brecovery check(s)?\b", re.IGNORECASE)),
+    (
+        "procedure:knocked_out_transition",
+        re.compile(r"\bknock(?:s|ed|ing)?\s+out\b|\bknocked out\b|\bunconscious\b", re.IGNORECASE),
+    ),
+    (
+        "procedure:roll_strike",
+        re.compile(
+            r"\broll(?:ing)?\s+(?:to\s+)?strike\b|\broll\s+a\s+strike\b|\bmake(?:s|ing)?\s+a\s+strike\b|\bstrike\s+roll\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "procedure:critical_resolution",
+        re.compile(r"\bcritical\s+(hit|success|failure)\b|\bon a critical\b", re.IGNORECASE),
+    ),
+    (
+        "procedure:gain_dying",
+        re.compile(
+            r"\b(?:gain|gains|gaining|acquire|acquires|become|becomes|enter|enters)\s+dying\b|\bdying condition\b",
+            re.IGNORECASE,
+        ),
+    ),
+    ("procedure:persistent_damage_tick", re.compile(r"\bpersistent damage\b", re.IGNORECASE)),
+    ("procedure:perception_check", re.compile(r"\bperception check(s)?\b", re.IGNORECASE)),
+    ("procedure:initiative_roll", re.compile(r"\binitiative roll\b|\broll(?:ing)? initiative\b", re.IGNORECASE)),
+    ("procedure:initiative", re.compile(r"\binitiative\b", re.IGNORECASE)),
+    ("procedure:attack_resolution", re.compile(r"\battack roll\b|\bmissed attack\b|\battack misses\b", re.IGNORECASE)),
+    ("procedure:miss_resolution", re.compile(r"\bon a miss\b|\bmiss(?:es|ed)?\b", re.IGNORECASE)),
+    (
+        "procedure:apply_damage",
+        re.compile(r"\b(?:apply|applies|take|takes|taking|deal|deals|receive|receives)\s+damage\b|\bdamage is applied\b", re.IGNORECASE),
+    ),
+    (
+        "procedure:damage_roll",
+        re.compile(
+            r"\bdamage roll\b|\broll damage\b|\bdamage dice\b|\bdamage die\b|\bdie size\b|\bweapon damage dice\b|\bnormal weapon damage dice\b|\bnormal die size\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "procedure:dying",
+        re.compile(
+            r"\b(dying|death|perish)\b|\bdie\b(?!\s+(?:size|roll|dice)\b)",
+            re.IGNORECASE,
+        ),
+    ),
+    ("procedure:movement", re.compile(r"\bmove action\b|\bmovement\b", re.IGNORECASE)),
+]
+
+
+def _normalize_override_target(target: Optional[str]) -> Optional[str]:
+    if not target:
+        return None
+    cleaned = " ".join(str(target).split())
+    cleaned = cleaned.replace("\u2013", "-").replace("\u2014", "-")
+    if _NUMERIC_OVERRIDE_TARGET.match(cleaned):
+        return f"noise:numeric:{cleaned}"
+    if _TEMPORAL_OVERRIDE_TARGET.search(cleaned):
+        return f"noise:temporal:{cleaned.lower()}"
+    for token, pattern in _PROCEDURE_TARGETS:
+        if pattern.search(cleaned):
+            return token
+    return cleaned
 
 
 @dataclass
@@ -454,8 +528,65 @@ REQUIRES_PATTERNS = [
     ),
 ]
 
+# Frequency/usage limit patterns
+FREQUENCY_PATTERNS = [
+    # "Frequency: once per day" / "Frequency: 1/hour"
+    FactPattern(
+        name="frequency_label",
+        pattern=re.compile(
+            r'\bfrequency\s*[,:]\s*(.+?)(?:\.|$)',
+            re.IGNORECASE
+        ),
+        fact_type=FactType.FREQUENCY,
+        modality=Modality.MUST,
+    ),
+    # "frequency of once per 10 minutes"
+    FactPattern(
+        name="frequency_of",
+        pattern=re.compile(
+            r'\bfrequency\s+of\s+(.+?)(?:\.|$)',
+            re.IGNORECASE
+        ),
+        fact_type=FactType.FREQUENCY,
+        modality=Modality.MUST,
+    ),
+]
+
 # Override patterns
 OVERRIDE_PATTERNS = [
+    # "You X instead of Y"
+    FactPattern(
+        name="instead_of_inline",
+        pattern=re.compile(
+            r"^(?!\s*instead\s+of\b)(.+?)\s+instead of\s+(.+?)(?:\.|$)",
+            re.IGNORECASE,
+        ),
+        fact_type=FactType.INSTEAD_OF,
+        modality=Modality.MAY,
+    ),
+    
+    # "rather than X, you Y"
+    FactPattern(
+        name="rather_than",
+        pattern=re.compile(
+            r"\brather than\s+([^,]+?),\s*(.+?)(?:\.|$)",
+            re.IGNORECASE,
+        ),
+        fact_type=FactType.INSTEAD_OF,
+        modality=Modality.MAY,
+    ),
+    
+    # "this replaces X"
+    FactPattern(
+        name="replaces",
+        pattern=re.compile(
+            r"\b(?:this|that|it)\s+replaces?\s+(?:the\s+)?(.+?)(?:\.|$)",
+            re.IGNORECASE,
+        ),
+        fact_type=FactType.OVERRIDES,
+        modality=Modality.AUTOMATIC,
+    ),
+    
     # "Instead, you may..."
     FactPattern(
         name="instead",
@@ -549,6 +680,17 @@ TRIGGERS_PATTERNS = [
         fact_type=FactType.TRIGGERS,
         modality=Modality.CONDITIONAL,
     ),
+
+    # "Trigger: A creature misses you"
+    FactPattern(
+        name="trigger_label",
+        pattern=re.compile(
+            r'\btrigger[s]?\s*[,:-]\s*(.+?)(?:\.|$)',
+            re.IGNORECASE
+        ),
+        fact_type=FactType.TRIGGERS,
+        modality=Modality.CONDITIONAL,
+    ),
 ]
 
 # Unless/exception patterns
@@ -584,6 +726,7 @@ def _get_fact_patterns(resolved_config: Optional[Any]) -> List[FactPattern]:
         + _build_ruleset_level_patterns(resolved_config)
         + GRANTS_PATTERNS
         + REQUIRES_PATTERNS
+        + FREQUENCY_PATTERNS
         + OVERRIDE_PATTERNS
         + APPLIES_TO_PATTERNS
         + TRIGGERS_PATTERNS
@@ -839,6 +982,22 @@ def extract_rule_facts(
             if pattern.name == "prerequisites_markdown_header":
                 extraction_method = "prerequisites_markdown_header"
             
+            override_target = None
+            if pattern.fact_type in {FactType.OVERRIDES, FactType.INSTEAD_OF}:
+                if pattern.name == "overrides" and object_text:
+                    override_target = object_text
+                elif pattern.name == "instead_of":
+                    override_target = match.group(1).strip() if match.group(1) else None
+                elif pattern.name == "instead_of_inline":
+                    override_target = match.group(2).strip() if match.group(2) else None
+                elif pattern.name == "rather_than":
+                    override_target = match.group(1).strip() if match.group(1) else None
+                elif pattern.name == "replaces":
+                    override_target = match.group(1).strip() if match.group(1) else None
+            override_target = _normalize_override_target(override_target)
+            if not override_target and pattern.fact_type in {FactType.OVERRIDES, FactType.INSTEAD_OF}:
+                override_target = _normalize_override_target(clause.text)
+
             # Create fact
             fact = RuleFact(
                 fact_id=f"{clause.clause_id}::fact_{fact_counter}",
@@ -857,6 +1016,7 @@ def extract_rule_facts(
                 confidence=1.0 if subject else 0.7,
                 extraction_method=extraction_method,
                 is_complete=is_complete,
+                override_target=override_target,
             )
             facts.append(fact)
             fact_counter += 1

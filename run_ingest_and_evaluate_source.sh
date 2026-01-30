@@ -3,12 +3,18 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$ROOT_DIR/../.env.development"
-SOURCE_DIR="$ROOT_DIR/Rules/StarFinder2e/PlayerCore/source"
-OUTPUT_ROOT="$ROOT_DIR/Rules/StarFinder2e/PlayerCore/outputs"
-RUN_SLUG="$(date +%Y-%m-%d_%H-%M-%S)"
+SOURCE_DIR="${SOURCE_DIR:-$ROOT_DIR/Rules/StarFinder2e/PlayerCore/source}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$ROOT_DIR/Rules/StarFinder2e/PlayerCore/outputs}"
+RULESET_ID="${RULESET_ID:-sf2e-playercore}"
+RUN_SLUG="${RUN_SLUG:-$(date +%Y-%m-%d_%H-%M-%S)}"
 RUN_DIR="$OUTPUT_ROOT/runs/$RUN_SLUG"
-REPORT_DIR="$RUN_DIR/reports"
-RULESET_ID="sf2e-playercore"
+REPORT_DIR="$RUN_DIR/reports/chapters-llm"
+
+MODEL_ID="${MODEL_ID:-nomic-embed-text-v2}"
+TOP_N="${TOP_N:-8}"
+SKIP_PATTERN="${SKIP_PATTERN:-Cover|INTRO}"
+EMBEDDING_RUN_ID="${EMBEDDING_RUN_ID:-$RUN_SLUG}"
+EDGE_GATE_PROMPT="${EDGE_GATE_PROMPT:-0}"
 
 if [[ -f "$ENV_FILE" ]]; then
   set -a
@@ -27,50 +33,55 @@ if [[ -z "${OPENAI_API_KEY:-}" ]]; then
   exit 1
 fi
 
-mkdir -p "$RUN_DIR"
+mkdir -p "$RUN_DIR" "$REPORT_DIR"
 
-echo "📄 Running rules ingestion pipeline on all PDFs..."
+echo "🚀 Running ingestion + deterministic edge merge (PlayerCore)"
 cd "$ROOT_DIR"
-shopt -s nullglob
-pdfs=("$SOURCE_DIR"/*.pdf)
-if [[ ${#pdfs[@]} -eq 0 ]]; then
-  echo "❌ No PDFs found in $SOURCE_DIR"
-  exit 1
-fi
+uv run python ingest.py \
+  --ruleset StarFinder2e \
+  --ruleset-id "$RULESET_ID" \
+  --book PlayerCore \
+  --profile full \
+  --auto-config \
+  --llm-pre-enrich \
+  --llm-review \
+  --llm-review-limit 10 \
+  --edge-allow-gate-fail \
+  $(if [[ "$EDGE_GATE_PROMPT" == "1" ]]; then echo "--edge-gate-prompt"; fi) \
+  --run-slug "$RUN_SLUG" \
+  --source-dir "$SOURCE_DIR" \
+  --output-root "$OUTPUT_ROOT" \
+  --skip-pattern "$SKIP_PATTERN"
 
-for pdf_path in "${pdfs[@]}"; do
-  stem="${pdf_path##*/}"
-  stem="${stem%.pdf}"
-  safe_stem="$(echo "$stem" | tr ' ' '-' | tr -cd 'A-Za-z0-9-')"
-  doc_id="sf2e-playercore-${safe_stem}"
-  echo "➡️  Processing: $stem"
-  uv run python rules_ingestion_pipeline.py "$pdf_path" \
-    --output-dir "$RUN_DIR" \
-    --doc-id "$doc_id" \
-    --auto-config \
-    --ruleset-id "$RULESET_ID" \
-    --llm-pre-enrich \
-    --llm-review \
-    --llm-review-limit 10
-done
-
-echo "🧩 Merging enriched outputs..."
-uv run python merge_enriched_outputs.py \
-  --enriched-dir "$RUN_DIR/enriched" \
-  --output-prefix "merged"
-
-echo "📊 Running embedding benchmarks (qwen, nomic, gte) with strict + expanded gold..."
+echo "📊 Running chapter-routing evaluation (LLM summaries + embeddings)..."
 cd "$ROOT_DIR/../DungeonMindServer"
 uv run python -m ruleslawyer.evaluation_harness \
   --queries-dir "$RUN_DIR/enriched" \
+  --model-id "$MODEL_ID" \
+  --embedding-run-id "$EMBEDDING_RUN_ID" \
+  --chapter-summary-only \
+  --chapter-summary-llm \
+  --chapter-summary-output "$REPORT_DIR/chapter_summaries_llm.json" \
+  --chapter-summary-embed \
+  --chapter-summary-embedding-output "$REPORT_DIR/chapter_summary_embeddings_llm_${MODEL_ID}.json" \
+  --reuse-embeddings \
+  --trust-remote-code
+
+uv run python -m ruleslawyer.evaluation_harness \
+  --queries-dir "$RUN_DIR/enriched" \
   --chunk-source enriched \
-  --model-id qwen3-embedding-0.6b \
-  --model-id nomic-embed-text-v2 \
-  --model-id gte-multilingual-base \
-  --model-name Qwen/Qwen3-Embedding-0.6B \
-  --model-name nomic-ai/nomic-embed-text-v2-moe \
+  --expand-gold \
+  --best-practice-eval \
+  --best-practice-boost \
+  --model-id "$MODEL_ID" \
+  --embedding-run-id "$EMBEDDING_RUN_ID" \
   --trust-remote-code \
-  --both \
-  --report-dir "$REPORT_DIR"
+  --report-dir "$REPORT_DIR" \
+  --chapter-routing-top-n "$TOP_N" \
+  --chapter-embedding-source summary \
+  --chapter-summary-embedding-path "$REPORT_DIR/chapter_summary_embeddings_llm_${MODEL_ID}.json" \
+  --chapter-routing-rerank \
+  --traversal-eval \
+  --reuse-embeddings
 
 echo "✅ Benchmark complete."

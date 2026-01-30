@@ -1,7 +1,12 @@
 # Rules Ingestion Cleanup Plan
+
+> **DEPRECATED**: This document has been superseded by [CLEANUP_RECOMMENDATIONS.md](CLEANUP_RECOMMENDATIONS.md).
+> Please refer to the new documentation for current cleanup recommendations and technical debt tracking.
+> This file is preserved for historical reference only.
+
 **Date:** 2026-01-24
 **Scope:** RulesIngestion service only
-**Prereq:** `Docs/rules_ingestion_architecture.md`
+**Prereq:** `Docs/ARCHITECTURE.md` (updated reference)
 
 ## Goals
 - Consolidate and clarify the active pipeline path

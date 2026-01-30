@@ -329,7 +329,7 @@ def extract_spell_title_from_text(text: str) -> Optional[str]:
 
 def extract_feat_titles_from_markdown(markdown_text: str) -> List[str]:
     """Extract feat names from Marker markdown output."""
-    pattern = r"^\*\*([A-Z][A-Z0-9\s'\-]+)\*\*\s*\*\*FEAT\s+\d+\*\*"
+    pattern = r"^\*\*([A-Z][A-Z0-9\s'\-]+?)\s*\*\*\s*(?:\[[^\]]+\]\s*)?\*\*FEAT\s+\d+\*\*"
     matches = re.findall(pattern, markdown_text, flags=re.MULTILINE)
     names = []
     for name in matches:
@@ -343,7 +343,7 @@ def extract_feat_title_from_text(text: str) -> Optional[str]:
     """Extract a feat name from enriched chunk text."""
     if not text:
         return None
-    pattern = r"\*\*([A-Z][A-Z0-9\s'\-]+)\*\*\s*\*\*FEAT\s+\d+\*\*"
+    pattern = r"\*\*([A-Z][A-Z0-9\s'\-]+?)\s*\*\*\s*(?:\[[^\]]+\]\s*)?\*\*FEAT\s+\d+\*\*"
     match = re.search(pattern, text)
     if match:
         return normalize_space(match.group(1)).strip().upper()

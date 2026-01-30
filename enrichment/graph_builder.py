@@ -1,4 +1,13 @@
-"""Graph building utilities for enriched chunks."""
+"""Graph building utilities for enriched chunks.
+
+Pipeline boundary (incremental refactor):
+  Phase 0: _build_structural_seed / _apply_structural_seed — doc/section/chunk + contains/next only.
+  Phase 1: extract_entity_candidates — pure CandidateBundle (no graph, no canonicalization).
+  Phase 2: canonicalize_candidates — pure CanonicalizationResult (alias resolution, candidate→canonical).
+  Phase 3: EntityRegistry + materialization — entity nodes and describes/mentioned_in.
+  Phase 5: _assign_fact_ownership — belongs_to, procedure anchoring; _apply_phase1_polish — final.
+  Public API unchanged: build_chunk_graph(...) -> Graph, build_fact_graph(...) -> Graph.
+"""
 
 from __future__ import annotations
 
@@ -6,22 +15,274 @@ import hashlib
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Pattern, Set, Tuple
 
 from .chunks import EnrichedChunk
 from .extractors import extract_feat_title_from_text, extract_spell_title_from_text, normalize_space
 
+if TYPE_CHECKING:
+    from .fact_relations import FactRelation
+    from .rule_facts import RuleFact
+
+
+# -----------------------------------------------------------------------------
+# Phase pipeline data shapes (incremental refactor boundary)
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StructuralSeed:
+    """Phase 0 output: document/section/chunk nodes and contains/next edges only."""
+
+    doc_node: Dict[str, Any]
+    section_nodes: List[Dict[str, Any]]
+    chunk_nodes: List[Dict[str, Any]]
+    edges: List[Dict[str, Any]]
+    section_index: Dict[str, str]  # section_key -> section_node_id
+    chunk_order: List[str]
+
+
+class CandidateKind(str, Enum):
+    """Kind of entity candidate (Phase 1)."""
+
+    ENTITY = "entity"
+    MECHANIC_FRAME = "mechanic_frame"
+    TRAIT = "trait"
+    TRADITION = "tradition"
+    TAG = "tag"
+    SPELL_RANK = "spell_rank"
+    SPELL_STAT = "spell_stat"
+    CONCEPT = "concept"
+    PROCEDURE = "procedure"
+
+
+@dataclass(frozen=True)
+class EntityCandidate:
+    """Phase 1: single entity candidate before canonicalization."""
+
+    candidate_id: str
+    kind: CandidateKind
+    entity_type: str
+    surface_name: str
+    chunk_id: str
+    page: Optional[int]
+    clause_id: Optional[str]
+    extraction_method: str
+    semantic: bool
+    context: Dict[str, Any]
+    confidence: float = 1.0
+
+
+@dataclass(frozen=True)
+class CandidateBundle:
+    """Phase 1 output: candidates + relation mentions (targets as names)."""
+
+    candidates: List[EntityCandidate]
+    relation_mentions: List[Tuple[str, str, str]]  # (source_id, relation, target_surface_name)
+
+
+@dataclass(frozen=True)
+class CanonicalEntity:
+    """Phase 2: canonical entity record."""
+
+    canonical_id: str
+    entity_type: str
+    name: str
+    canonical_key: str
+    aliases: List[str]
+    entity_role: str
+    provenance: Dict[str, Any]
+
+
+@dataclass(frozen=True)
+class CanonicalizationResult:
+    """Phase 2 output: alias map, canonical entities, candidate→canonical mapping."""
+
+    alias_map: Dict[str, str]
+    canonical_entities: Dict[str, CanonicalEntity]
+    candidate_to_canonical: Dict[str, str]
+    namekey_to_canonical: Dict[str, str]
+
+
+@dataclass(frozen=True)
+class MaterializedIndexes:
+    """Phase 3 output: indexes for later phases (ownership, polish)."""
+
+    entity_type_by_id: Dict[str, str]
+    entity_name_by_id: Dict[str, str]
+    chunk_to_entities: Dict[str, List[str]]
+    describes_meta: Dict[Tuple[str, str], Dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class OwnershipResult:
+    """Phase 5: fact ownership assignment result."""
+
+    fact_owner_by_id: Dict[str, str]
+    fact_chunk_by_id: Dict[str, str]
+    multi_candidate_fact_ids: Set[str]
+    missing_candidate_fact_ids: Set[str]
+
+
+@dataclass
+class GraphDelta:
+    """Accumulated graph changes for a pass (nodes, edges, node patches)."""
+
+    nodes: List[Dict[str, Any]] = field(default_factory=list)
+    edges: List[Dict[str, Any]] = field(default_factory=list)
+    node_updates: List[Tuple[str, Dict[str, Any]]] = field(default_factory=list)
+
+
+def _merge_patch_into_node(node: Dict[str, Any], patch: Dict[str, Any]) -> None:
+    """Merge patch into node: list fields extended (dedupe); scalars/dicts set only if missing."""
+    for k, v in patch.items():
+        if k in node and isinstance(node[k], list) and isinstance(v, list):
+            for x in v:
+                if x not in node[k]:
+                    node[k].append(x)
+        elif k not in node or node.get(k) is None or node.get(k) == "":
+            node[k] = v
+        # else: leave existing scalar/dict (e.g. mechanic_kind already set)
+
+
+def apply_delta(graph: Graph, delta: GraphDelta) -> None:
+    """Apply a delta to the graph (append nodes/edges, patch existing nodes). O(1) node patch via node_index."""
+    for node in delta.nodes:
+        graph.nodes.append(node)
+        nid = node.get("id")
+        if nid is not None:
+            graph.node_index[nid] = len(graph.nodes) - 1
+    for edge in delta.edges:
+        graph.edges.append(edge)
+    for node_id, patch in delta.node_updates:
+        idx = graph.node_index.get(node_id)
+        if idx is not None:
+            _merge_patch_into_node(graph.nodes[idx], patch)
+
+
+class EntityRegistry:
+    """
+    Owns canonical entity id creation, provenance, and namekey indexing.
+    Emits GraphDeltas so the graph is not mutated directly from entity logic.
+    """
+
+    def __init__(self, doc_id: str, resolved_ruleset_id: str) -> None:
+        self.doc_id = doc_id
+        self.resolved_ruleset_id = resolved_ruleset_id
+        self._seen_ids: Set[str] = set()
+        self.namekey_to_id: Dict[str, str] = {}
+
+    def ensure_entity_node(
+        self,
+        entity_type: str,
+        resolved_name: str,
+        alias_source: Optional[str],
+        chunk_id: str,
+        page: Optional[int],
+        extraction_method: str,
+        mechanic_meta: Dict[str, object],
+        chunk_spell_rank: Optional[int],
+        chunk_spell_stats: Optional[Dict[str, Any]],
+        chunk_traits: List[str],
+        chunk_traditions: List[str],
+        chunk_tags: List[str],
+    ) -> Tuple[str, GraphDelta, bool]:
+        """
+        Return (canonical_id, delta, is_new). Delta is either new node+mentions edge or node_updates (provenance/aliases).
+        Updates self._seen_ids and self.namekey_to_id.
+        """
+        canonical_key = _normalize_entity_key(resolved_name)
+        canonical_id = _canonical_entity_id(
+            self.resolved_ruleset_id,
+            entity_type,
+            resolved_name,
+            fallback_key=f"{self.doc_id}:{chunk_id}:{entity_type}",
+        )
+        entity_role = (
+            "mechanic_frame" if entity_type in MECHANIC_FRAME_TYPES else "entity"
+        )
+
+        if canonical_id not in self._seen_ids:
+            self._seen_ids.add(canonical_id)
+            _add_entity_index(self.namekey_to_id, canonical_id, [resolved_name])
+            node_payload: Dict[str, Any] = {
+                "name": resolved_name,
+                "normalized_name": _normalize_entity_name(resolved_name),
+                "canonical_key": canonical_key,
+                "canonical_id": canonical_id,
+                "ruleset_id": self.resolved_ruleset_id,
+                "entity_role": entity_role,
+                "aliases": [resolved_name],
+                "source_documents": [self.doc_id],
+                "source_chunk_ids": [chunk_id],
+                "source_pages": [page] if page is not None else [],
+                "extraction_method": extraction_method,
+                "spell_rank": chunk_spell_rank,
+                "spell_stats": chunk_spell_stats,
+                "traits": chunk_traits,
+                "traditions": chunk_traditions,
+                "tags": chunk_tags,
+                **mechanic_meta,
+            }
+            delta = GraphDelta(
+                nodes=[{"id": canonical_id, "type": entity_type, **node_payload}],
+                edges=[
+                    {
+                        "source": self.doc_id,
+                        "target": canonical_id,
+                        "relation": "mentions",
+                        "source_document": self.doc_id,
+                        "page": page,
+                        "source_chunk_id": chunk_id,
+                        "extraction_method": extraction_method,
+                    }
+                ],
+            )
+            return canonical_id, delta, True
+
+        _add_entity_index(
+            self.namekey_to_id,
+            canonical_id,
+            [resolved_name, alias_source] if alias_source else [resolved_name],
+        )
+        # Emit node_updates so caller applies via apply_delta (no direct graph mutation)
+        patch: Dict[str, Any] = {
+            "source_documents": [self.doc_id],
+            "source_chunk_ids": [chunk_id],
+            "source_pages": [page] if page is not None else [],
+        }
+        if alias_source or resolved_name:
+            patch["aliases"] = [resolved_name, alias_source] if alias_source else [resolved_name]
+        if entity_type in MECHANIC_FRAME_TYPES and mechanic_meta:
+            patch["mechanic_kind"] = mechanic_meta.get("mechanic_kind")
+            for k, v in mechanic_meta.items():
+                if k not in ("mechanic_kind",):
+                    patch[k] = v
+        # Caller will merge lists; we emit append-style payload. apply_delta merges by node_id.
+        delta = GraphDelta(
+            node_updates=[(canonical_id, patch)],
+        )
+        return canonical_id, delta, False
+
+
+# -----------------------------------------------------------------------------
+# Graph type and core helpers
+# -----------------------------------------------------------------------------
+
 
 @dataclass
 class Graph:
-    """Simple node/edge graph for RAG queries."""
+    """Simple node/edge graph for RAG queries. node_index maps node id -> index for O(1) patch."""
 
     nodes: List[Dict[str, Any]] = field(default_factory=list)
     edges: List[Dict[str, Any]] = field(default_factory=list)
     stats: Dict[str, Any] = field(default_factory=dict)
+    node_index: Dict[str, int] = field(default_factory=dict)
 
     def add_node(self, node_id: str, node_type: str, payload: Dict[str, Any]) -> None:
         self.nodes.append({"id": node_id, "type": node_type, **payload})
+        self.node_index[node_id] = len(self.nodes) - 1
 
     def add_edge(
         self,
@@ -58,8 +319,145 @@ def _normalize_entity_key(text: str) -> str:
     return normalized.lower()
 
 
+def _sort_ownership_candidates(
+    candidate_ids: List[str],
+    entity_type_by_id: Dict[str, str],
+    entity_name_by_id: Dict[str, str],
+) -> List[str]:
+    return sorted(
+        candidate_ids,
+        key=lambda candidate: (
+            MECHANIC_FRAME_TYPE_PRIORITY.index(entity_type_by_id.get(candidate, ""))
+            if entity_type_by_id.get(candidate) in MECHANIC_FRAME_TYPES
+            else len(MECHANIC_FRAME_TYPE_PRIORITY),
+            _normalize_entity_key(entity_name_by_id.get(candidate, "")),
+            candidate,
+        ),
+    )
+
+
 def _slugify_name(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+
+
+STRUCTURAL_HEADER_TERMS = {
+    "level",
+    "levels",
+    "class",
+    "classes",
+    "ancestry",
+    "ancestries",
+    "background",
+    "backgrounds",
+    "feat",
+    "feats",
+    "spell",
+    "spells",
+    "equipment",
+    "item",
+    "items",
+    "weapon",
+    "weapons",
+    "armor",
+    "traits",
+    "skills",
+    "skill",
+}
+
+ROLE_TAG_KEYWORDS = {
+    "ancestry",
+    "class",
+    "archetype",
+    "background",
+    "heritage",
+    "race",
+    "species",
+    "subclass",
+    "trait",
+    "role",
+}
+
+BEHAVIORAL_CONTENT_KINDS = {
+    "feat",
+    "spell",
+    "rule",
+    "action",
+    "ability",
+    "item",
+    "equipment",
+    "weapon",
+    "armor",
+}
+
+
+def _is_level_like(name_key: str) -> bool:
+    if not name_key:
+        return False
+    if name_key == "level":
+        return True
+    return bool(re.match(r"^\d+(st|nd|rd|th)\s+level$", name_key))
+
+
+def _classify_mechanic_kind(
+    name: str,
+    *,
+    entity_type: Optional[str] = None,
+    content_kind: Optional[str] = None,
+    block_type: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+) -> Dict[str, object]:
+    normalized = _normalize_entity_key(name)
+    content_kind = (content_kind or "").lower()
+    block_type = (block_type or "").lower()
+    tags = [tag.lower() for tag in (tags or []) if tag]
+
+    if entity_type in {"Spell", "Feat", "Rule", "Action", "Ability", "Item"}:
+        return {
+            "mechanic_kind": "behavioral",
+            "expects_facts": True,
+            "retrieval_target": True,
+        }
+
+    if content_kind in BEHAVIORAL_CONTENT_KINDS:
+        return {
+            "mechanic_kind": "behavioral",
+            "expects_facts": True,
+            "retrieval_target": True,
+        }
+
+    if _is_level_like(normalized):
+        return {
+            "mechanic_kind": "structural",
+            "expects_facts": False,
+            "retrieval_target": False,
+        }
+
+    if any(keyword in tag for tag in tags for keyword in ROLE_TAG_KEYWORDS):
+        return {
+            "mechanic_kind": "taxonomic",
+            "expects_facts": False,
+            "retrieval_target": False,
+        }
+
+    if block_type in {"sectionheader", "title"} and normalized in STRUCTURAL_HEADER_TERMS:
+        return {
+            "mechanic_kind": "structural",
+            "expects_facts": False,
+            "retrieval_target": False,
+        }
+
+    if normalized in STRUCTURAL_HEADER_TERMS:
+        return {
+            "mechanic_kind": "structural",
+            "expects_facts": False,
+            "retrieval_target": False,
+        }
+
+    return {
+        "mechanic_kind": "behavioral",
+        "expects_facts": True,
+        "retrieval_target": True,
+    }
 
 
 def _normalize_book_id(document_id: str) -> str:
@@ -224,6 +622,41 @@ CHUNK_ADJACENCY_LIMIT = 12
 MECHANIC_FRAME_TYPES = {"MechanicFrame", "Spell", "Feat", "Rule", "Action", "Ability"}
 MECHANIC_FRAME_TYPE_PRIORITY = ["MechanicFrame", "Spell", "Feat", "Rule", "Action", "Ability"]
 STRUCTURAL_COREFERENCE_RELATION = "structural_coreference"
+
+# Node kinds per ENTITY_FACT_PARTITION_INVARIANTS.md
+STRUCTURAL_NODE_TYPES = {"document", "section", "chunk"}
+FACT_NODE_TYPES = {"RuleFact"}
+
+
+class NodeKind(str, Enum):
+    """Node kind partition: structural | entity | fact. Facts are not entities."""
+
+    STRUCTURAL = "structural"
+    ENTITY = "entity"
+    FACT = "fact"
+
+
+def get_node_kind(node: Dict[str, Any]) -> NodeKind:
+    """Classify node by type. Entity-ness is explicit, not derived by exclusion."""
+    t = node.get("type") or ""
+    if t in STRUCTURAL_NODE_TYPES:
+        return NodeKind.STRUCTURAL
+    if t in FACT_NODE_TYPES:
+        return NodeKind.FACT
+    return NodeKind.ENTITY
+
+
+def is_entity_like(node: Dict[str, Any]) -> bool:
+    """True only for entity nodes (not structural, not fact). Use for counts, alias maps, traversal purity."""
+    return get_node_kind(node) == NodeKind.ENTITY
+# CandidateKind -> relation name for has_* edges from primary entity to trait/tradition/rank/tag/stat
+HAS_RELATION_BY_KIND: Dict[CandidateKind, str] = {
+    CandidateKind.TRAIT: "has_trait",
+    CandidateKind.TRADITION: "has_tradition",
+    CandidateKind.SPELL_RANK: "has_rank",
+    CandidateKind.TAG: "has_tag",
+    CandidateKind.SPELL_STAT: "has_stat",
+}
 CORE_ENTITY_TYPES = {
     "Spell",
     "Feat",
@@ -235,6 +668,152 @@ CORE_ENTITY_TYPES = {
     "Background",
     "Monster",
 }
+
+PROCEDURE_ANCHOR_MAP: Dict[str, List[Tuple[str, List[str], List[str]]]] = {
+    "procedure:gain_dying": [
+        ("results_in", ["Condition", "MechanicFrame"], ["dying"]),
+    ],
+    "procedure:dying": [
+        ("results_in", ["Condition", "MechanicFrame"], ["dying"]),
+    ],
+    "procedure:knocked_out_transition": [
+        ("results_in", ["Condition", "MechanicFrame"], ["unconscious"]),
+    ],
+    "procedure:persistent_damage_tick": [
+        ("results_in", ["Condition", "MechanicFrame"], ["persistent damage"]),
+    ],
+    "procedure:roll_strike": [
+        ("affects", ["MechanicFrame", "Action"], ["strike", "attack"]),
+    ],
+    "procedure:attack_resolution": [
+        ("part_of", ["MechanicFrame", "Action"], ["attack", "strike"]),
+    ],
+    "procedure:miss_resolution": [
+        ("branches_from", ["MechanicFrame", "Action"], ["attack", "strike"]),
+    ],
+    "procedure:critical_resolution": [
+        ("branches_from", ["MechanicFrame", "Action"], ["attack", "strike"]),
+    ],
+    "procedure:damage_roll": [
+        ("part_of", ["MechanicFrame", "Action"], ["damage"]),
+    ],
+    "procedure:apply_damage": [
+        ("affects", ["MechanicFrame", "Action"], ["damage"]),
+    ],
+    "procedure:perception_check": [
+        ("affects", ["MechanicFrame", "Action"], ["perception"]),
+    ],
+    "procedure:initiative_roll": [
+        ("affects", ["MechanicFrame", "Action"], ["initiative"]),
+    ],
+    "procedure:movement": [
+        ("affects", ["MechanicFrame", "Action"], ["movement"]),
+    ],
+}
+
+# Only add steps for procedures with observed overrides in audits.
+PROCEDURE_STEP_PATTERNS: Dict[str, List[Tuple[str, Pattern[str]]]] = {
+    "procedure:attack_resolution": [
+        (
+            "damage_roll",
+            re.compile(
+                r"\bnormal weapon damage dice\b|\bdamage dice\b|\bextra damage\b|\bdamage instead of\b",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "critical_resolution",
+            re.compile(r"\bcritical\s+(hit|success|failure)\b|\bon a critical\b", re.IGNORECASE),
+        ),
+        ("miss_resolution", re.compile(r"\bon a miss\b|\bmiss(?:es|ed)?\b|\battack misses\b", re.IGNORECASE)),
+        (
+            "hit_resolution",
+            re.compile(r"\bon a hit\b|\bif the attack hits\b|\bon a successful hit\b", re.IGNORECASE),
+        ),
+        ("attack_roll", re.compile(r"\battack roll\b|\broll(?:ing)?\s+(?:to\s+)?strike\b", re.IGNORECASE)),
+    ],
+    "procedure:apply_damage": [
+        (
+            "damage_roll",
+            re.compile(
+                r"\bnormal damage\b|\bdamage dice\b|\bdamage instead of\b|\bextra damage\b|\badditional damage\b",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "damage_type_assignment",
+            re.compile(
+                r"\b(type|types)\s+of\s+damage\b|\b(fire|cold|electricity|acid|poison|sonic|force|precision)\s+damage\b",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "damage_scaling",
+            re.compile(
+                r"\bdouble damage\b|\bhalf damage\b|\bincrease(?:s|d)? damage\b|\breduce(?:s|d)? damage\b|\bdamage scales\b",
+                re.IGNORECASE,
+            ),
+        ),
+    ],
+    "procedure:dying": [
+        ("recovery_check", re.compile(r"\brecovery check(s)?\b", re.IGNORECASE)),
+        (
+            "gain_dying",
+            re.compile(
+                r"\bgain(?:s|ed|ing)?\s+dying\b|\bbecome(?:s)?\s+dying\b|\bdying condition\b",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "increase_dying",
+            re.compile(
+                r"\bincrease(?:s|d|ing)?\s+your\s+dying\b|\bdying\s+value\b",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "stabilize",
+            re.compile(r"\bstabiliz(?:e|es|ed|ing)\b|\bstable at 0\b", re.IGNORECASE),
+        ),
+    ],
+    "procedure:movement": [
+        ("movement_action", re.compile(r"\bwhen you move\b|\bwhile moving\b", re.IGNORECASE)),
+        ("leaving_square", re.compile(r"\bleav(?:e|es|ing)\s+(?:a|the)\s+square\b", re.IGNORECASE)),
+        ("provokes_reaction", re.compile(r"\bprovok(?:e|es|ing)\b", re.IGNORECASE)),
+    ],
+}
+
+
+def _normalize_step_slug(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9]+", "_", str(value or "").lower())
+    cleaned = cleaned.strip("_")
+    return cleaned
+
+
+def _derive_procedure_step_id(procedure_id: str, clause_text: Optional[str]) -> Optional[str]:
+    if not procedure_id or not clause_text:
+        return None
+    patterns = PROCEDURE_STEP_PATTERNS.get(procedure_id, [])
+    if not patterns:
+        return None
+    for step_slug, pattern in patterns:
+        if pattern.search(clause_text):
+            normalized = _normalize_step_slug(step_slug)
+            if normalized:
+                return f"{procedure_id}#step:{normalized}"
+    return None
+
+
+def _extract_dying_threshold_override(text: Optional[str]) -> Optional[Tuple[int, int]]:
+    if not text:
+        return None
+    normalized = str(text).lower()
+    if "instead of" not in normalized:
+        return None
+    values = [int(value) for value in re.findall(r"\bdying\s+(\d+)\b", normalized)]
+    if len(values) < 2:
+        return None
+    return values[0], values[1]
 
 
 def _strip_markdown_title(text: str) -> str:
@@ -606,6 +1185,207 @@ def _add_entity_index(
         index.setdefault(canonical_key, canonical_id)
 
 
+def _select_mechanic_frame_id(
+    name_key: str,
+    mechanic_frame_ids_by_key: Dict[str, List[str]],
+    entity_type_by_id: Dict[str, str],
+) -> Optional[str]:
+    if not name_key:
+        return None
+    candidates = mechanic_frame_ids_by_key.get(name_key) or []
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda candidate: (
+            MECHANIC_FRAME_TYPE_PRIORITY.index(entity_type_by_id.get(candidate, ""))
+            if entity_type_by_id.get(candidate) in MECHANIC_FRAME_TYPES
+            else len(MECHANIC_FRAME_TYPE_PRIORITY),
+            candidate,
+        )
+    )
+    return candidates[0]
+
+
+def _add_mechanic_frame_relations(
+    graph: Graph,
+    facts: List["RuleFact"],
+    clause_mechanic_keys: Dict[str, Set[str]],
+    entity_name_by_id: Dict[str, str],
+    entity_type_by_id: Dict[str, str],
+    fact_owner_by_id: Dict[str, str],
+    fact_chunk_by_id: Dict[str, str],
+    doc_id: str,
+) -> int:
+    from .rule_facts import FactType
+
+    mechanic_frame_ids_by_key: Dict[str, List[str]] = {}
+    for entity_id, entity_type in entity_type_by_id.items():
+        if entity_type not in MECHANIC_FRAME_TYPES:
+            continue
+        name = entity_name_by_id.get(entity_id, "")
+        name_key = _normalize_entity_key(name)
+        if name_key:
+            mechanic_frame_ids_by_key.setdefault(name_key, []).append(entity_id)
+
+    if not mechanic_frame_ids_by_key:
+        return 0
+
+    added = 0
+    seen: Set[Tuple[str, str, str]] = set()
+    strong_links: Set[Tuple[str, str]] = set()
+
+    def _add_relation(source_id: str, target_id: str, relation: str, fact: "RuleFact") -> None:
+        nonlocal added
+        if not source_id or not target_id or source_id == target_id:
+            return
+        key = (source_id, target_id, relation)
+        if key in seen:
+            return
+        chunk_id = fact_chunk_by_id.get(fact.fact_id, "")
+        graph.add_edge(
+            source_id,
+            target_id,
+            relation,
+            {
+                "source_document": doc_id,
+                "source_chunk_id": chunk_id,
+                "clause_id": fact.clause_id,
+                "fact_id": fact.fact_id,
+                "fact_type": fact.fact_type.value,
+                "extraction_method": "mechanic_relation",
+            },
+        )
+        seen.add(key)
+        added += 1
+
+    for fact in facts:
+        source_id = fact_owner_by_id.get(fact.fact_id)
+        if not source_id:
+            continue
+        source_key = _normalize_entity_key(entity_name_by_id.get(source_id, ""))
+        if not source_key:
+            continue
+
+        if fact.fact_type == FactType.REQUIRES and fact.object:
+            target_key = _normalize_entity_key(fact.object)
+            target_id = _select_mechanic_frame_id(target_key, mechanic_frame_ids_by_key, entity_type_by_id)
+            if target_id:
+                _add_relation(source_id, target_id, "requires_mechanic", fact)
+                strong_links.add((source_id, target_id))
+
+        if fact.fact_type in {FactType.MODIFIES, FactType.OVERRIDES, FactType.INSTEAD_OF, FactType.PREVENTS}:
+            target_key = _normalize_entity_key(fact.object or "")
+            target_id = _select_mechanic_frame_id(target_key, mechanic_frame_ids_by_key, entity_type_by_id)
+            if target_id:
+                _add_relation(source_id, target_id, "modifies_mechanic", fact)
+                strong_links.add((source_id, target_id))
+
+        if fact.override_target:
+            target_key = _normalize_entity_key(fact.override_target)
+            target_id = _select_mechanic_frame_id(target_key, mechanic_frame_ids_by_key, entity_type_by_id)
+            if target_id:
+                _add_relation(source_id, target_id, "modifies_mechanic", fact)
+                strong_links.add((source_id, target_id))
+
+        for mention_key in clause_mechanic_keys.get(fact.clause_id, set()):
+            if mention_key == source_key:
+                continue
+            target_id = _select_mechanic_frame_id(
+                mention_key, mechanic_frame_ids_by_key, entity_type_by_id
+            )
+            if not target_id:
+                continue
+            if (source_id, target_id) in strong_links:
+                continue
+            _add_relation(source_id, target_id, "references_mechanic", fact)
+
+    return added
+
+
+def _apply_phase1_polish(
+    graph: Graph,
+    facts: List["RuleFact"],
+    relations: List["FactRelation"],
+    fact_owner_by_id: Dict[str, str],
+    entity_type_by_id: Dict[str, str],
+) -> None:
+    from collections import defaultdict
+
+    from .fact_relations import RelationType
+    from .rule_facts import FactType
+
+    semantic_relation_types = {
+        RelationType.APPLIES_TO_ROLE,
+        RelationType.REQUIRES_LEVEL,
+        RelationType.SAME_SUBJECT,
+        RelationType.HAS_FAILURE_MODE,
+        RelationType.CONTRASTS_WITH,
+        RelationType.OVERRIDDEN_BY,
+        RelationType.CHANGES_OUTCOME,
+        RelationType.TRIGGERS,
+        RelationType.UNLESS,
+    }
+    causal_fact_types = {
+        FactType.TRIGGERS,
+        FactType.PREVENTS,
+        FactType.MODIFIES,
+        FactType.OVERRIDES,
+        FactType.INSTEAD_OF,
+        FactType.UNLESS,
+    }
+    negative_override_fact_types = {
+        FactType.PREVENTS,
+        FactType.OVERRIDES,
+        FactType.INSTEAD_OF,
+        FactType.UNLESS,
+    }
+
+    facts_by_id = {fact.fact_id: fact for fact in facts}
+    owned_facts_by_frame: Dict[str, List[str]] = defaultdict(list)
+    for fact_id, owner_id in fact_owner_by_id.items():
+        if owner_id:
+            owned_facts_by_frame[owner_id].append(fact_id)
+
+    semantic_fact_ids: Set[str] = set()
+    for relation in relations:
+        if relation.relation_type in semantic_relation_types:
+            semantic_fact_ids.add(relation.source_fact_id)
+            semantic_fact_ids.add(relation.target_fact_id)
+
+    for node in graph.nodes:
+        node_id = node.get("id")
+        node_type = node.get("type")
+        if not node_id or node_type not in MECHANIC_FRAME_TYPES:
+            continue
+        kind = node.get("mechanic_kind") or "behavioral"
+        owned_ids = owned_facts_by_frame.get(node_id, [])
+        has_semantic_relation = any(fact_id in semantic_fact_ids for fact_id in owned_ids)
+        has_negative_override = any(
+            (
+                facts_by_id.get(fact_id)
+                and (
+                    facts_by_id[fact_id].fact_type in negative_override_fact_types
+                    or facts_by_id[fact_id].override_target
+                )
+            )
+            for fact_id in owned_ids
+        )
+
+        retrieval_target = bool(has_semantic_relation or has_negative_override)
+        if kind != "behavioral":
+            retrieval_target = False
+        node["retrieval_target"] = retrieval_target
+
+        if kind == "behavioral" and owned_ids:
+            has_causal_fact = any(
+                facts_by_id.get(fact_id)
+                and facts_by_id[fact_id].fact_type in causal_fact_types
+                for fact_id in owned_ids
+            )
+            if not has_causal_fact:
+                node["mechanic_kind"] = "structural_behavioral"
+
+
 def _connect_chunks_by_entity(
     graph: Graph,
     entity_to_chunks: Dict[str, Set[str]],
@@ -638,7 +1418,7 @@ def _summarize_graph(graph: Graph) -> Dict[str, Any]:
     for node in graph.nodes:
         node_type = node.get("type", "unknown")
         node_type_counts[node_type] = node_type_counts.get(node_type, 0) + 1
-        if node_type not in {"document", "section", "chunk"}:
+        if is_entity_like(node):
             entity_type_counts[node_type] = entity_type_counts.get(node_type, 0) + 1
             aliases = node.get("aliases") or []
             alias_lengths.append(len(aliases))
@@ -662,11 +1442,12 @@ def _summarize_graph(graph: Graph) -> Dict[str, Any]:
     }
 
 
-def _validate_graph(graph: Graph) -> None:
+def _validate_graph(graph: Graph) -> Dict[str, List]:
+    """Validate graph; return validation issues. Only entity-kind nodes require canonical_id."""
     missing_canonical = [
         node
         for node in graph.nodes
-        if node.get("type") not in {"document", "section", "chunk"}
+        if is_entity_like(node)
         and not _is_canonical_id(node.get("id", ""))
         and not node.get("canonical_id")
     ]
@@ -683,6 +1464,648 @@ def _validate_graph(graph: Graph) -> None:
             "⚠️  Graph validation: edges missing relation="
             f"{len(missing_relation)}"
         )
+    return {"missing_canonical": missing_canonical, "missing_relation": missing_relation}
+
+
+# -----------------------------------------------------------------------------
+# Phase 1: Candidate extraction (pure — no graph, no canonicalization)
+# -----------------------------------------------------------------------------
+
+
+def _make_candidate_id(
+    chunk_id: str,
+    entity_type: str,
+    kind: CandidateKind,
+    surface_name: str,
+    seq: int = 0,
+) -> str:
+    """Stable deterministic id for an entity candidate."""
+    slug = _slugify_name(surface_name or "unnamed")[:48]
+    return f"cand:{chunk_id}:{entity_type}:{slug}:{kind.value}:{seq}"
+
+
+def extract_entity_candidates(
+    chunks: List[EnrichedChunk],
+    resolved_config: Optional[Any] = None,
+) -> CandidateBundle:
+    """
+    Extract entity candidates from chunks without mutating a graph or
+    resolving aliases. Returns CandidateBundle (candidates + relation_mentions).
+    Phase 2 will canonicalize; Phase 3 will materialize nodes/edges.
+    """
+    candidates: List[EntityCandidate] = []
+    relation_mentions: List[Tuple[str, str, str]] = []
+    entity_type_context = _build_entity_type_context(chunks, window_size=500)
+    candidate_seq_by_key: Dict[str, int] = {}
+
+    for chunk_idx, chunk in enumerate(chunks):
+        if not chunk.text.strip():
+            continue
+        chunk_id = chunk.id
+        entity_type_map = {
+            "spell": "Spell",
+            "feat": "Feat",
+            "item": "Item",
+            "rule": "Rule",
+        }
+        primary_entity_surface: Optional[str] = None
+
+        entity_type = entity_type_map.get(chunk.content_kind)
+        if entity_type:
+            entity_name = _extract_entity_name(chunk)
+            if entity_type == "Rule" and not entity_name:
+                entity_name = ""
+            if entity_name:
+                key = (chunk_id, entity_type, CandidateKind.ENTITY, entity_name)
+                seq = candidate_seq_by_key.get(str(key), 0)
+                candidate_seq_by_key[str(key)] = seq + 1
+                candidates.append(
+                    EntityCandidate(
+                        candidate_id=_make_candidate_id(
+                            chunk_id, entity_type, CandidateKind.ENTITY, entity_name, seq
+                        ),
+                        kind=CandidateKind.ENTITY,
+                        entity_type=entity_type,
+                        surface_name=_normalize_entity_name(entity_name),
+                        chunk_id=chunk_id,
+                        page=chunk.page,
+                        clause_id=None,
+                        extraction_method="heuristic",
+                        semantic=True,
+                        context={
+                            "content_kind": chunk.content_kind,
+                            "block_type": chunk.block_type,
+                            "section_path": chunk.section_path,
+                        },
+                    )
+                )
+                primary_entity_surface = _normalize_entity_name(entity_name)
+                if chunk.content_kind in {"feat", "spell", "rule", "item"}:
+                    mf_key = (chunk_id, "MechanicFrame", CandidateKind.MECHANIC_FRAME, entity_name)
+                    mf_seq = candidate_seq_by_key.get(str(mf_key), 0)
+                    candidate_seq_by_key[str(mf_key)] = mf_seq + 1
+                    candidates.append(
+                        EntityCandidate(
+                            candidate_id=_make_candidate_id(
+                                chunk_id, "MechanicFrame", CandidateKind.MECHANIC_FRAME, entity_name, mf_seq
+                            ),
+                            kind=CandidateKind.MECHANIC_FRAME,
+                            entity_type="MechanicFrame",
+                            surface_name=primary_entity_surface,
+                            chunk_id=chunk_id,
+                            page=chunk.page,
+                            clause_id=None,
+                            extraction_method="heuristic",
+                            semantic=True,
+                            context={"content_kind": chunk.content_kind},
+                        )
+                    )
+
+        section_entity_type = _infer_section_entity_type(chunk)
+        if section_entity_type and section_entity_type != entity_type:
+            section_entity_name = _extract_section_entity_name(chunk)
+            if section_entity_name and _is_simple_entity_name(section_entity_name):
+                key = (chunk_id, section_entity_type, CandidateKind.ENTITY, section_entity_name)
+                seq = candidate_seq_by_key.get(str(key), 0)
+                candidate_seq_by_key[str(key)] = seq + 1
+                candidates.append(
+                    EntityCandidate(
+                        candidate_id=_make_candidate_id(
+                            chunk_id, section_entity_type, CandidateKind.ENTITY, section_entity_name, seq
+                        ),
+                        kind=CandidateKind.ENTITY,
+                        entity_type=section_entity_type,
+                        surface_name=_normalize_entity_name(section_entity_name),
+                        chunk_id=chunk_id,
+                        page=chunk.page,
+                        clause_id=None,
+                        extraction_method="section_header",
+                        semantic=False,
+                        context={"section_path": chunk.section_path},
+                    )
+                )
+
+        tag_entity_type = _infer_tag_entity_type(chunk)
+        if (
+            tag_entity_type
+            and tag_entity_type != entity_type
+            and tag_entity_type != section_entity_type
+        ):
+            tag_entity_name = _extract_tag_entity_name(chunk)
+            if tag_entity_name and _is_simple_entity_name(tag_entity_name):
+                key = (chunk_id, tag_entity_type, CandidateKind.ENTITY, tag_entity_name)
+                seq = candidate_seq_by_key.get(str(key), 0)
+                candidate_seq_by_key[str(key)] = seq + 1
+                candidates.append(
+                    EntityCandidate(
+                        candidate_id=_make_candidate_id(
+                            chunk_id, tag_entity_type, CandidateKind.ENTITY, tag_entity_name, seq
+                        ),
+                        kind=CandidateKind.ENTITY,
+                        entity_type=tag_entity_type,
+                        surface_name=_normalize_entity_name(tag_entity_name),
+                        chunk_id=chunk_id,
+                        page=chunk.page,
+                        clause_id=None,
+                        extraction_method="tag",
+                        semantic=False,
+                        context={"tags": chunk.tags},
+                    )
+                )
+
+        if chunk.section_path and chunk.tags:
+            for tag in chunk.tags:
+                tag_lower = tag.lower()
+                path_entity_name = None
+                path_type = None
+                if "ancestr" in tag_lower or "heritage" in tag_lower:
+                    path_entity_name = _extract_named_entity_from_path(chunk, "Ancestry")
+                    path_type = "Ancestry"
+                elif "class" in tag_lower and "subclass" not in tag_lower:
+                    path_entity_name = _extract_named_entity_from_path(chunk, "Class")
+                    path_type = "Class"
+                elif "background" in tag_lower:
+                    path_entity_name = _extract_named_entity_from_path(chunk, "Background")
+                    path_type = "Background"
+                if path_entity_name and path_type:
+                    key = (chunk_id, path_type, CandidateKind.ENTITY, path_entity_name)
+                    seq = candidate_seq_by_key.get(str(key), 0)
+                    candidate_seq_by_key[str(key)] = seq + 1
+                    candidates.append(
+                        EntityCandidate(
+                            candidate_id=_make_candidate_id(
+                                chunk_id, path_type, CandidateKind.ENTITY, path_entity_name, seq
+                            ),
+                            kind=CandidateKind.ENTITY,
+                            entity_type=path_type,
+                            surface_name=_normalize_entity_name(path_entity_name),
+                            chunk_id=chunk_id,
+                            page=chunk.page,
+                            clause_id=None,
+                            extraction_method="section_path",
+                            semantic=False,
+                            context={"tags": chunk.tags, "section_path": chunk.section_path},
+                        )
+                    )
+                    break
+
+        if chunk.block_type in {"SectionHeader", "Title"}:
+            header_text = _strip_markdown_title(chunk.text)
+            if _is_simple_entity_name(header_text) and (
+                chunk.is_rule_bearing or _has_rule_bearing_followup(chunks, chunk_idx)
+            ):
+                key = (chunk_id, "MechanicFrame", CandidateKind.MECHANIC_FRAME, header_text)
+                seq = candidate_seq_by_key.get(str(key), 0)
+                candidate_seq_by_key[str(key)] = seq + 1
+                candidates.append(
+                    EntityCandidate(
+                        candidate_id=_make_candidate_id(
+                            chunk_id, "MechanicFrame", CandidateKind.MECHANIC_FRAME, header_text, seq
+                        ),
+                        kind=CandidateKind.MECHANIC_FRAME,
+                        entity_type="MechanicFrame",
+                        surface_name=_normalize_entity_name(header_text),
+                        chunk_id=chunk_id,
+                        page=chunk.page,
+                        clause_id=None,
+                        extraction_method="header_promotion",
+                        semantic=False,
+                        context={"block_type": chunk.block_type},
+                    )
+                )
+
+        if chunk.block_type == "SectionHeader" and chunk_idx in entity_type_context:
+            header_text = _strip_markdown_title(chunk.text)
+            if _is_simple_entity_name(header_text):
+                context_entity_type = entity_type_context[chunk_idx]
+                entity_name = _normalize_entity_name(header_text)
+                if (
+                    entity_name
+                    and entity_name.lower() not in _PATH_CATEGORY_KEYWORDS
+                    and _has_entity_signature(chunks, chunk_idx, context_entity_type)
+                ):
+                    key = (chunk_id, context_entity_type, CandidateKind.ENTITY, entity_name)
+                    seq = candidate_seq_by_key.get(str(key), 0)
+                    candidate_seq_by_key[str(key)] = seq + 1
+                    candidates.append(
+                        EntityCandidate(
+                            candidate_id=_make_candidate_id(
+                                chunk_id, context_entity_type, CandidateKind.ENTITY, entity_name, seq
+                            ),
+                            kind=CandidateKind.ENTITY,
+                            entity_type=context_entity_type,
+                            surface_name=entity_name,
+                            chunk_id=chunk_id,
+                            page=chunk.page,
+                            clause_id=None,
+                            extraction_method="context_header",
+                            semantic=False,
+                            context={"entity_type_context": context_entity_type},
+                        )
+                    )
+
+        if primary_entity_surface:
+            for trait in chunk.traits:
+                trait_name = _normalize_entity_name(trait)
+                if not trait_name:
+                    continue
+                key = (chunk_id, "Trait", CandidateKind.TRAIT, trait_name)
+                seq = candidate_seq_by_key.get(str(key), 0)
+                candidate_seq_by_key[str(key)] = seq + 1
+                candidates.append(
+                    EntityCandidate(
+                        candidate_id=_make_candidate_id(
+                            chunk_id, "Trait", CandidateKind.TRAIT, trait_name, seq
+                        ),
+                        kind=CandidateKind.TRAIT,
+                        entity_type="Trait",
+                        surface_name=trait_name,
+                        chunk_id=chunk_id,
+                        page=chunk.page,
+                        clause_id=None,
+                        extraction_method="heuristic",
+                        semantic=False,
+                        context={"primary_entity_surface_name": primary_entity_surface},
+                    )
+                )
+            for tradition in chunk.traditions:
+                tradition_name = _normalize_entity_name(tradition)
+                if not tradition_name:
+                    continue
+                key = (chunk_id, "Tradition", CandidateKind.TRADITION, tradition_name)
+                seq = candidate_seq_by_key.get(str(key), 0)
+                candidate_seq_by_key[str(key)] = seq + 1
+                candidates.append(
+                    EntityCandidate(
+                        candidate_id=_make_candidate_id(
+                            chunk_id, "Tradition", CandidateKind.TRADITION, tradition_name, seq
+                        ),
+                        kind=CandidateKind.TRADITION,
+                        entity_type="Tradition",
+                        surface_name=tradition_name,
+                        chunk_id=chunk_id,
+                        page=chunk.page,
+                        clause_id=None,
+                        extraction_method="heuristic",
+                        semantic=False,
+                        context={"primary_entity_surface_name": primary_entity_surface},
+                    )
+                )
+            if chunk.spell_rank is not None:
+                rank_name = f"Rank {chunk.spell_rank}"
+                key = (chunk_id, "SpellRank", CandidateKind.SPELL_RANK, rank_name)
+                seq = candidate_seq_by_key.get(str(key), 0)
+                candidate_seq_by_key[str(key)] = seq + 1
+                candidates.append(
+                    EntityCandidate(
+                        candidate_id=_make_candidate_id(
+                            chunk_id, "SpellRank", CandidateKind.SPELL_RANK, rank_name, seq
+                        ),
+                        kind=CandidateKind.SPELL_RANK,
+                        entity_type="SpellRank",
+                        surface_name=rank_name,
+                        chunk_id=chunk_id,
+                        page=chunk.page,
+                        clause_id=None,
+                        extraction_method="heuristic",
+                        semantic=False,
+                        context={"primary_entity_surface_name": primary_entity_surface},
+                    )
+                )
+            for tag in chunk.tags:
+                tag_name = _normalize_entity_name(tag)
+                if not tag_name:
+                    continue
+                key = (chunk_id, "Tag", CandidateKind.TAG, tag_name)
+                seq = candidate_seq_by_key.get(str(key), 0)
+                candidate_seq_by_key[str(key)] = seq + 1
+                candidates.append(
+                    EntityCandidate(
+                        candidate_id=_make_candidate_id(
+                            chunk_id, "Tag", CandidateKind.TAG, tag_name, seq
+                        ),
+                        kind=CandidateKind.TAG,
+                        entity_type="Tag",
+                        surface_name=tag_name,
+                        chunk_id=chunk_id,
+                        page=chunk.page,
+                        clause_id=None,
+                        extraction_method="heuristic",
+                        semantic=False,
+                        context={"primary_entity_surface_name": primary_entity_surface},
+                    )
+                )
+            for stat_key, stat_value in (chunk.spell_stats or {}).items():
+                stat_name = _normalize_entity_name(f"{stat_key}: {stat_value}")
+                if not stat_name:
+                    continue
+                key = (chunk_id, "SpellStat", CandidateKind.SPELL_STAT, stat_name)
+                seq = candidate_seq_by_key.get(str(key), 0)
+                candidate_seq_by_key[str(key)] = seq + 1
+                candidates.append(
+                    EntityCandidate(
+                        candidate_id=_make_candidate_id(
+                            chunk_id, "SpellStat", CandidateKind.SPELL_STAT, stat_name, seq
+                        ),
+                        kind=CandidateKind.SPELL_STAT,
+                        entity_type="SpellStat",
+                        surface_name=stat_name,
+                        chunk_id=chunk_id,
+                        page=chunk.page,
+                        clause_id=None,
+                        extraction_method="heuristic",
+                        semantic=False,
+                        context={
+                            "primary_entity_surface_name": primary_entity_surface,
+                            "stat_key": stat_key,
+                            "stat_value": stat_value,
+                        },
+                    )
+                )
+
+        for relation, target_name in _extract_relation_mentions(chunk.text):
+            relation_mentions.append((chunk_id, relation, target_name))
+
+    return CandidateBundle(candidates=candidates, relation_mentions=relation_mentions)
+
+
+# -----------------------------------------------------------------------------
+# Phase 2: Canonicalization + alias resolution (pure transform)
+# -----------------------------------------------------------------------------
+
+
+def canonicalize_candidates(
+    bundle: CandidateBundle,
+    chunks: List[EnrichedChunk],
+    ruleset_id: str,
+    doc_id: str,
+    resolved_config: Optional[Any] = None,
+) -> CanonicalizationResult:
+    """
+    Resolve aliases and map each candidate to a canonical entity.
+    Deterministic, order-preserving (first occurrence wins per entity_type + canonical_key).
+    No graph mutation; returns CanonicalizationResult for Phase 3 to consume.
+    """
+    alias_map = _build_entity_alias_map(chunks, resolved_config)
+    canonical_entities: Dict[str, CanonicalEntity] = {}
+    candidate_to_canonical: Dict[str, str] = {}
+    namekey_to_canonical: Dict[str, str] = {}
+    seen_canonical_keys: Dict[Tuple[str, str], str] = {}  # (entity_type, canonical_key) -> canonical_id
+
+    for c in bundle.candidates:
+        resolved_name, alias_source = _resolve_alias_name(c.surface_name, alias_map)
+        if not resolved_name or not _is_reasonable_canonical(resolved_name):
+            continue
+        canonical_key = _normalize_entity_key(resolved_name)
+        canonical_id = _canonical_entity_id(
+            ruleset_id, c.entity_type, resolved_name, c.candidate_id
+        )
+        group_key = (c.entity_type, canonical_key)
+        if group_key not in seen_canonical_keys:
+            seen_canonical_keys[group_key] = canonical_id
+            aliases_list: List[str] = [resolved_name]
+            if alias_source and alias_source not in aliases_list:
+                aliases_list.append(alias_source)
+            surface_norm = _normalize_entity_name(c.surface_name)
+            if surface_norm and surface_norm not in aliases_list:
+                aliases_list.append(surface_norm)
+            entity_role = (
+                "mechanic_frame"
+                if c.entity_type in MECHANIC_FRAME_TYPES
+                else "entity"
+            )
+            entity_role = c.context.get("entity_role", entity_role)
+            provenance: Dict[str, Any] = {
+                "chunk_id": c.chunk_id,
+                "page": c.page,
+                "extraction_method": c.extraction_method,
+            }
+            canonical_entities[canonical_id] = CanonicalEntity(
+                canonical_id=canonical_id,
+                entity_type=c.entity_type,
+                name=resolved_name,
+                canonical_key=canonical_key,
+                aliases=aliases_list,
+                entity_role=entity_role,
+                provenance=provenance,
+            )
+            for a in aliases_list:
+                key = _normalize_entity_key(a)
+                if key:
+                    namekey_to_canonical[key] = canonical_id
+        else:
+            canonical_id = seen_canonical_keys[group_key]
+            resolved_key = _normalize_entity_key(resolved_name)
+            if resolved_key:
+                namekey_to_canonical.setdefault(resolved_key, canonical_id)
+            if alias_source:
+                namekey_to_canonical.setdefault(
+                    _normalize_entity_key(alias_source), canonical_id
+                )
+        candidate_to_canonical[c.candidate_id] = canonical_id
+
+    return CanonicalizationResult(
+        alias_map=alias_map,
+        canonical_entities=canonical_entities,
+        candidate_to_canonical=candidate_to_canonical,
+        namekey_to_canonical=namekey_to_canonical,
+    )
+
+
+# -----------------------------------------------------------------------------
+# Phase 0: Structural graph seed (pure, dumb — no entities, no heuristics)
+# -----------------------------------------------------------------------------
+
+
+def _build_structural_seed(
+    doc_id: str,
+    chunks: List[EnrichedChunk],
+    ruleset_id: str,
+    book_id: str,
+) -> StructuralSeed:
+    """
+    Build only document/section/chunk nodes and contains/next edges.
+    Deterministic, order-preserving, no entity or alias logic.
+    """
+    doc_node: Dict[str, Any] = {
+        "id": doc_id,
+        "type": "document",
+        "name": doc_id,
+        "ruleset_id": ruleset_id,
+        "book_id": book_id,
+    }
+    section_node_list: List[Dict[str, Any]] = []
+    section_index: Dict[str, str] = {}
+    chunk_node_list: List[Dict[str, Any]] = []
+    edge_list: List[Dict[str, Any]] = []
+    chunk_order: List[str] = []
+
+    prev_chunk_id: Optional[str] = None
+
+    for chunk in chunks:
+        if not chunk.text.strip():
+            continue
+
+        chunk_id = chunk.id
+        chunk_node_list.append({
+            "id": chunk_id,
+            "type": "chunk",
+            "content_kind": chunk.content_kind,
+            "page": chunk.page,
+            "is_rule_bearing": chunk.is_rule_bearing,
+            "tags": chunk.tags,
+            "spell_rank": chunk.spell_rank,
+            "source_document": doc_id,
+            "ruleset_id": ruleset_id,
+            "book_id": book_id,
+            "chapter_id": _derive_chapter_id(book_id, chunk.section_path),
+            "section_path": chunk.section_path,
+            "extraction_method": "marker_enrichment",
+        })
+        edge_list.append({
+            "source": doc_id,
+            "target": chunk_id,
+            "relation": "contains",
+            "source_document": doc_id,
+            "page": chunk.page,
+            "source_chunk_id": chunk_id,
+            "extraction_method": "marker_enrichment",
+        })
+        chunk_order.append(chunk_id)
+
+        if chunk.section_path:
+            section_key = " > ".join(chunk.section_path)
+            if section_key not in section_index:
+                section_node_id = f"{doc_id}::section::{section_key}"
+                section_index[section_key] = section_node_id
+                section_node_list.append({
+                    "id": section_node_id,
+                    "type": "section",
+                    "section_path": chunk.section_path,
+                    "name": chunk.section_path[-1] if chunk.section_path else "",
+                    "source_document": doc_id,
+                    "ruleset_id": ruleset_id,
+                    "book_id": book_id,
+                    "chapter_id": _derive_chapter_id(book_id, chunk.section_path),
+                })
+                edge_list.append({
+                    "source": doc_id,
+                    "target": section_node_id,
+                    "relation": "contains",
+                    "source_document": doc_id,
+                    "page": chunk.page,
+                    "source_chunk_id": chunk_id,
+                    "extraction_method": "marker_enrichment",
+                })
+            edge_list.append({
+                "source": section_index[section_key],
+                "target": chunk_id,
+                "relation": "contains",
+                "source_document": doc_id,
+                "page": chunk.page,
+                "source_chunk_id": chunk_id,
+                "extraction_method": "marker_enrichment",
+            })
+
+        if prev_chunk_id:
+            edge_list.append({
+                "source": prev_chunk_id,
+                "target": chunk_id,
+                "relation": "next",
+                "source_document": doc_id,
+                "page": chunk.page,
+                "source_chunk_id": chunk_id,
+                "extraction_method": "marker_enrichment",
+            })
+        prev_chunk_id = chunk_id
+
+    return StructuralSeed(
+        doc_node=doc_node,
+        section_nodes=section_node_list,
+        chunk_nodes=chunk_node_list,
+        edges=edge_list,
+        section_index=section_index,
+        chunk_order=chunk_order,
+    )
+
+
+def _apply_structural_seed(graph: Graph, seed: StructuralSeed) -> None:
+    """Apply Phase 0 seed to graph: append nodes and edges in stable order. Updates node_index."""
+    graph.nodes.append(seed.doc_node)
+    graph.node_index[seed.doc_node["id"]] = len(graph.nodes) - 1
+    for node in seed.section_nodes:
+        graph.nodes.append(node)
+        graph.node_index[node["id"]] = len(graph.nodes) - 1
+    for node in seed.chunk_nodes:
+        graph.nodes.append(node)
+        graph.node_index[node["id"]] = len(graph.nodes) - 1
+    for edge in seed.edges:
+        graph.edges.append(edge)
+
+
+def apply_header_scope_describes(
+    *,
+    graph: Graph,
+    chunks: List[EnrichedChunk],
+    chunk_order: List[str],
+    candidates_by_chunk: Dict[str, List[EntityCandidate]],
+    canon_result: CanonicalizationResult,
+    primary_canonical_id_by_chunk: Dict[str, str],
+    doc_id: str,
+) -> None:
+    """
+    Phase 3b: infer scope-based describes edges (header_scope).
+    Add describes(chunk_id, active_mechanic_frame_id) when a chunk inherits scope
+    from the previous chunk's mechanic frame. Same edge creation semantics and
+    ordering as the previous inline logic; call after all entity nodes exist.
+    """
+    chunk_by_id = {c.id: c for c in chunks}
+    active_mechanic_frame_id: Optional[str] = None
+
+    for chunk_id in chunk_order:
+        chunk = chunk_by_id.get(chunk_id)
+        if not chunk or not chunk.text.strip():
+            continue
+        chunk_idx = next((i for i, c in enumerate(chunks) if c.id == chunk_id), -1)
+
+        chunk_candidates = candidates_by_chunk.get(chunk_id, [])
+        this_chunk_header_mf: Optional[str] = None
+        for c in chunk_candidates:
+            if c.kind == CandidateKind.MECHANIC_FRAME and c.extraction_method == "header_promotion":
+                this_chunk_header_mf = canon_result.candidate_to_canonical.get(c.candidate_id)
+                break
+
+        if (
+            active_mechanic_frame_id
+            and _should_inherit_mechanic_frame(chunk)
+            and active_mechanic_frame_id != this_chunk_header_mf
+        ):
+            graph.add_edge(
+                chunk_id,
+                active_mechanic_frame_id,
+                "describes",
+                {
+                    "source_document": doc_id,
+                    "page": chunk.page,
+                    "source_chunk_id": chunk_id,
+                    "extraction_method": "header_scope",
+                    "semantic": False,
+                },
+            )
+
+        this_chunk_primary_mf: Optional[str] = primary_canonical_id_by_chunk.get(chunk_id)
+        if chunk.block_type in {"SectionHeader", "Title"}:
+            header_text = _strip_markdown_title(chunk.text)
+            if _is_simple_entity_name(header_text) and not (
+                chunk.is_rule_bearing or _has_rule_bearing_followup(chunks, chunk_idx)
+            ):
+                active_mechanic_frame_id = None
+            else:
+                active_mechanic_frame_id = (
+                    this_chunk_header_mf or this_chunk_primary_mf or active_mechanic_frame_id
+                )
+        else:
+            active_mechanic_frame_id = this_chunk_primary_mf or active_mechanic_frame_id
 
 
 def build_chunk_graph(
@@ -701,533 +2124,138 @@ def build_chunk_graph(
     resolved_ruleset_id = ruleset_id or doc_id
     book_id = _normalize_book_id(doc_id)
 
-    graph.add_node(
-        doc_id,
-        "document",
-        {
-            "name": doc_id,
-            "ruleset_id": resolved_ruleset_id,
-            "book_id": book_id,
-        },
+    # Phase 0: structural seed (doc/section/chunk + contains/next only)
+    seed = _build_structural_seed(doc_id, chunks, resolved_ruleset_id, book_id)
+    _apply_structural_seed(graph, seed)
+
+    # Phase 1+2: candidate extraction and canonicalization (replaces inline extraction + alias_map)
+    bundle = extract_entity_candidates(chunks, resolved_config)
+    canon_result = canonicalize_candidates(
+        bundle, chunks, resolved_ruleset_id, doc_id, resolved_config
     )
+    chunk_by_id = {c.id: c for c in chunks}
+    candidates_by_chunk: Dict[str, List[EntityCandidate]] = {}
+    for c in bundle.candidates:
+        candidates_by_chunk.setdefault(c.chunk_id, []).append(c)
 
-    section_nodes: Dict[str, str] = {}
-    prev_chunk_id: Optional[str] = None
-    entity_nodes: Dict[str, str] = {}
-    entity_ids_by_name: Dict[str, str] = {}
+    entity_registry = EntityRegistry(doc_id, resolved_ruleset_id)
     entity_to_chunks: Dict[str, Set[str]] = {}
-    active_mechanic_frame_id: Optional[str] = None
-
-    alias_map = _build_entity_alias_map(chunks, resolved_config)
-    
-    # Build context for inferring entity types from SectionHeader blocks
-    # Use large window because tags may be sparse across document sections
-    entity_type_context = _build_entity_type_context(chunks, window_size=500)
+    seen_entity_ids: Set[str] = set()
+    primary_canonical_id_by_chunk: Dict[str, str] = {}
+    chunk_order: List[str] = []
+    alias_map = canon_result.alias_map
 
     for chunk_idx, chunk in enumerate(chunks):
         if not chunk.text.strip():
             continue
 
         chunk_id = chunk.id
+        chunk_order.append(chunk_id)
 
-        graph.add_node(
-            chunk_id,
-            "chunk",
-            {
-                "content_kind": chunk.content_kind,
-                "page": chunk.page,
-                "is_rule_bearing": chunk.is_rule_bearing,
-                "tags": chunk.tags,
-                "spell_rank": chunk.spell_rank,
-                "source_document": doc_id,
-                "ruleset_id": resolved_ruleset_id,
-                "book_id": book_id,
-                "chapter_id": _derive_chapter_id(book_id, chunk.section_path),
-                "section_path": chunk.section_path,
-                "extraction_method": "marker_enrichment",
-            },
-        )
+        chunk_candidates = candidates_by_chunk.get(chunk_id, [])
 
-        graph.add_edge(
-            doc_id,
-            chunk_id,
-            "contains",
-            {
-                "source_document": doc_id,
-                "page": chunk.page,
-                "source_chunk_id": chunk_id,
-                "extraction_method": "marker_enrichment",
-            },
-        )
-
-        if chunk.section_path:
-            section_key = " > ".join(chunk.section_path)
-            if section_key not in section_nodes:
-                section_node_id = f"{doc_id}::section::{section_key}"
-                section_nodes[section_key] = section_node_id
-                graph.add_node(
-                    section_node_id,
-                    "section",
-                    {
-                        "section_path": chunk.section_path,
-                        "name": chunk.section_path[-1] if chunk.section_path else "",
-                        "source_document": doc_id,
-                        "ruleset_id": resolved_ruleset_id,
-                        "book_id": book_id,
-                        "chapter_id": _derive_chapter_id(book_id, chunk.section_path),
-                    },
+        # Phase 3: materialize entity nodes from Phase 1+2 candidates (same order as before)
+        primary_canonical_id: Optional[str] = None
+        for candidate in chunk_candidates:
+            canon_id = canon_result.candidate_to_canonical.get(candidate.candidate_id)
+            if canon_id is None:
+                continue
+            cent = canon_result.canonical_entities.get(canon_id)
+            if cent is None:
+                continue
+            ch = chunk_by_id.get(candidate.chunk_id, chunk)
+            mechanic_meta = (
+                _classify_mechanic_kind(
+                    cent.name,
+                    entity_type=cent.entity_type,
+                    content_kind=ch.content_kind,
+                    block_type=ch.block_type,
+                    tags=ch.tags,
                 )
-                graph.add_edge(
-                    doc_id,
-                    section_node_id,
-                    "contains",
-                    {
-                        "source_document": doc_id,
-                        "page": chunk.page,
-                        "source_chunk_id": chunk_id,
-                        "extraction_method": "marker_enrichment",
-                    },
-                )
-
-            graph.add_edge(
-                section_nodes[section_key],
-                chunk_id,
-                "contains",
-                {
-                    "source_document": doc_id,
-                    "page": chunk.page,
-                    "source_chunk_id": chunk_id,
-                    "extraction_method": "marker_enrichment",
-                },
+                if cent.entity_type in MECHANIC_FRAME_TYPES
+                else {}
             )
-
-        if prev_chunk_id:
-            graph.add_edge(
-                prev_chunk_id,
-                chunk_id,
-                "next",
-                {
-                    "source_document": doc_id,
-                    "page": chunk.page,
-                    "source_chunk_id": chunk_id,
-                    "extraction_method": "marker_enrichment",
-                },
+            _, delta, is_new = entity_registry.ensure_entity_node(
+                entity_type=cent.entity_type,
+                resolved_name=cent.name,
+                alias_source=None,
+                chunk_id=candidate.chunk_id,
+                page=candidate.page,
+                extraction_method=candidate.extraction_method,
+                mechanic_meta=mechanic_meta,
+                chunk_spell_rank=ch.spell_rank,
+                chunk_spell_stats=ch.spell_stats,
+                chunk_traits=ch.traits,
+                chunk_traditions=ch.traditions,
+                chunk_tags=ch.tags,
             )
-        prev_chunk_id = chunk_id
-
-        entity_type_map = {
-            "spell": "Spell",
-            "feat": "Feat",
-            "item": "Item",
-            "rule": "Rule",
-        }
-
-        def _add_entity_node(entity_type: str, entity_name: str) -> Optional[str]:
-            if not entity_name:
-                return None
-            resolved_name, alias_source = _resolve_alias_name(entity_name, alias_map)
-            if not resolved_name:
-                return None
-            canonical_id = _canonical_entity_id(
-                resolved_ruleset_id,
-                entity_type,
-                resolved_name,
-                fallback_key=f"{doc_id}:{chunk_id}:{entity_type}",
-            )
-            if canonical_id not in entity_nodes:
-                graph.add_node(
-                    canonical_id,
-                    entity_type,
-                    {
-                        "name": resolved_name,
-                        "normalized_name": _normalize_entity_name(resolved_name),
-                        "canonical_key": _normalize_entity_key(resolved_name),
-                        "canonical_id": canonical_id,
-                        "ruleset_id": resolved_ruleset_id,
-                        "entity_role": "mechanic_frame"
-                        if entity_type in MECHANIC_FRAME_TYPES
-                        else "entity",
-                        "aliases": [resolved_name],
-                        "source_documents": [doc_id],
-                        "source_chunk_ids": [chunk_id],
-                        "source_pages": [chunk.page],
-                        "extraction_method": "heuristic",
-                        "spell_rank": chunk.spell_rank,
-                        "spell_stats": chunk.spell_stats,
-                        "traits": chunk.traits,
-                        "traditions": chunk.traditions,
-                        "tags": chunk.tags,
-                    },
-                )
-                entity_nodes[canonical_id] = canonical_id
-                _add_entity_index(entity_ids_by_name, canonical_id, [resolved_name])
-                graph.add_edge(
-                    doc_id,
-                    canonical_id,
-                    "mentions",
-                    {
-                        "source_document": doc_id,
-                        "page": chunk.page,
-                        "source_chunk_id": chunk_id,
-                        "extraction_method": "heuristic",
-                    },
-                )
-            else:
-                for node in graph.nodes:
-                    if node.get("id") == canonical_id:
-                        node.setdefault("source_documents", [])
-                        node.setdefault("source_chunk_ids", [])
-                        node.setdefault("source_pages", [])
-                        if doc_id not in node["source_documents"]:
-                            node["source_documents"].append(doc_id)
-                        if chunk_id not in node["source_chunk_ids"]:
-                            node["source_chunk_ids"].append(chunk_id)
-                        if chunk.page not in node["source_pages"]:
-                            node["source_pages"].append(chunk.page)
-                        for alias in [resolved_name, alias_source]:
-                            if alias and alias not in node.get("aliases", []):
-                                node.setdefault("aliases", []).append(alias)
-                        break
-                _add_entity_index(
-                    entity_ids_by_name,
-                    canonical_id,
-                    [resolved_name, alias_source] if alias_source else [resolved_name],
-                )
+            apply_delta(graph, delta)
 
             graph.add_edge(
                 chunk_id,
-                canonical_id,
+                canon_id,
                 "describes",
                 {
                     "source_document": doc_id,
-                    "page": chunk.page,
+                    "page": ch.page,
                     "source_chunk_id": chunk_id,
-                    "extraction_method": "heuristic",
+                    "extraction_method": candidate.extraction_method,
                 },
             )
             graph.add_edge(
-                canonical_id,
+                canon_id,
                 chunk_id,
                 "mentioned_in",
                 {
                     "source_document": doc_id,
-                    "page": chunk.page,
+                    "page": ch.page,
                     "source_chunk_id": chunk_id,
-                    "extraction_method": "heuristic",
+                    "extraction_method": candidate.extraction_method,
                 },
             )
-            if entity_type in CORE_ENTITY_TYPES:
-                entity_to_chunks.setdefault(canonical_id, set()).add(chunk_id)
-            return canonical_id
+            if cent.entity_type in CORE_ENTITY_TYPES:
+                entity_to_chunks.setdefault(canon_id, set()).add(chunk_id)
+            seen_entity_ids.add(canon_id)
 
-        entity_type = entity_type_map.get(chunk.content_kind)
-        canonical_id = None
-        if entity_type:
-            entity_name = _extract_entity_name(chunk)
-            if entity_type == "Rule" and not entity_name:
-                entity_name = ""
-            if entity_name:
-                canonical_id = _add_entity_node(entity_type, entity_name)
-                if chunk.content_kind in {"feat", "spell", "rule", "item"}:
-                    active_mechanic_frame_id = _add_entity_node("MechanicFrame", entity_name)
-
-        section_entity_type = _infer_section_entity_type(chunk)
-        if section_entity_type and section_entity_type != entity_type:
-            section_entity_name = _extract_section_entity_name(chunk)
-            # Filter out category headers and noise
-            if section_entity_name and _is_simple_entity_name(section_entity_name):
-                _add_entity_node(section_entity_type, section_entity_name)
-
-        tag_entity_type = _infer_tag_entity_type(chunk)
-        if (
-            tag_entity_type
-            and tag_entity_type != entity_type
-            and tag_entity_type != section_entity_type
-        ):
-            tag_entity_name = _extract_tag_entity_name(chunk)
-            # Filter out category headers and noise
-            if tag_entity_name and _is_simple_entity_name(tag_entity_name):
-                _add_entity_node(tag_entity_type, tag_entity_name)
-
-        # Extract specific ancestry/class entities from section path (if available)
-        if chunk.section_path and chunk.tags:
-            for tag in chunk.tags:
-                tag_lower = tag.lower()
-                if "ancestr" in tag_lower or "heritage" in tag_lower:
-                    path_entity_name = _extract_named_entity_from_path(chunk, "Ancestry")
-                    if path_entity_name:
-                        _add_entity_node("Ancestry", path_entity_name)
-                elif "class" in tag_lower and "subclass" not in tag_lower:
-                    path_entity_name = _extract_named_entity_from_path(chunk, "Class")
-                    if path_entity_name:
-                        _add_entity_node("Class", path_entity_name)
-                elif "background" in tag_lower:
-                    path_entity_name = _extract_named_entity_from_path(chunk, "Background")
-                    if path_entity_name:
-                        _add_entity_node("Background", path_entity_name)
-
-        # Promote named headers to generic MechanicFrame entities
-        mechanic_frame_id: Optional[str] = None
-        if chunk.block_type in {"SectionHeader", "Title"}:
-            header_text = _strip_markdown_title(chunk.text)
-            if _is_simple_entity_name(header_text) and (
-                chunk.is_rule_bearing or _has_rule_bearing_followup(chunks, chunk_idx)
+            # First primary entity (Spell/Feat/Item/Rule or content MF) for this chunk
+            if primary_canonical_id is None and (
+                (candidate.entity_type in ("Spell", "Feat", "Item", "Rule"))
+                or (
+                    candidate.kind == CandidateKind.MECHANIC_FRAME
+                    and candidate.context.get("content_kind") in ("spell", "feat", "rule", "item")
+                )
             ):
-                mechanic_frame_id = _add_entity_node("MechanicFrame", header_text)
-                active_mechanic_frame_id = mechanic_frame_id
-            elif _is_simple_entity_name(header_text):
-                active_mechanic_frame_id = None
+                primary_canonical_id = canon_id
+                primary_canonical_id_by_chunk[chunk_id] = canon_id
 
-        if (
-            active_mechanic_frame_id
-            and _should_inherit_mechanic_frame(chunk)
-            and active_mechanic_frame_id != mechanic_frame_id
-        ):
-            graph.add_edge(
-                chunk_id,
-                active_mechanic_frame_id,
-                "describes",
-                {
-                    "source_document": doc_id,
-                    "page": chunk.page,
-                    "source_chunk_id": chunk_id,
-                    "extraction_method": "header_scope",
-                    "semantic": False,
-                },
-            )
-
-        # Extract ancestry/class entities from SectionHeader text using context
-        # This handles cases where section_path is empty but nearby chunks have tags
-        if chunk.block_type == "SectionHeader" and chunk_idx in entity_type_context:
-            header_text = _strip_markdown_title(chunk.text)
-            if _is_simple_entity_name(header_text):
-                context_entity_type = entity_type_context[chunk_idx]
-                entity_name = _normalize_entity_name(header_text)
-                if (
-                    entity_name
-                    and entity_name.lower() not in _PATH_CATEGORY_KEYWORDS
-                    and _has_entity_signature(chunks, chunk_idx, context_entity_type)
-                ):
-                    _add_entity_node(context_entity_type, entity_name)
-
-        if canonical_id:
-            for trait in chunk.traits:
-                trait_name_raw = _normalize_entity_name(trait)
-                trait_name, trait_alias = _resolve_alias_name(trait_name_raw, alias_map)
-                trait_id = _canonical_entity_id(
-                    resolved_ruleset_id,
-                    "Trait",
-                    trait_name,
-                    fallback_key=f"{doc_id}:{chunk_id}:trait:{trait}",
-                )
-                if trait_id not in entity_nodes:
-                    graph.add_node(
-                        trait_id,
-                        "Trait",
-                        {
-                            "name": trait_name,
-                            "canonical_id": trait_id,
-                            "ruleset_id": resolved_ruleset_id,
-                            "entity_role": "entity",
-                            "aliases": [trait_name] + ([trait_alias] if trait_alias else []),
-                            "source_documents": [doc_id],
-                            "source_chunk_ids": [chunk_id],
-                            "source_pages": [chunk.page],
-                            "extraction_method": "heuristic",
-                        },
-                    )
-                    entity_nodes[trait_id] = trait_id
-                    _add_entity_index(
-                        entity_ids_by_name,
-                        trait_id,
-                        [trait_name, trait_alias] if trait_alias else [trait_name],
-                    )
+            # has_* edge from primary to trait/tradition/rank/tag/stat
+            rel_name = HAS_RELATION_BY_KIND.get(candidate.kind)
+            if rel_name and candidate.context.get("primary_entity_surface_name") and primary_canonical_id:
                 graph.add_edge(
-                    canonical_id,
-                    trait_id,
-                    "has_trait",
+                    primary_canonical_id,
+                    canon_id,
+                    rel_name,
                     {
                         "source_document": doc_id,
-                        "page": chunk.page,
+                        "page": ch.page,
                         "source_chunk_id": chunk_id,
                         "extraction_method": "heuristic",
                     },
                 )
 
-            for tradition in chunk.traditions:
-                tradition_raw = _normalize_entity_name(tradition)
-                tradition_name, tradition_alias = _resolve_alias_name(tradition_raw, alias_map)
-                tradition_id = _canonical_entity_id(
-                    resolved_ruleset_id,
-                    "Tradition",
-                    tradition_name,
-                    fallback_key=f"{doc_id}:{chunk_id}:tradition:{tradition}",
-                )
-                if tradition_id not in entity_nodes:
-                    graph.add_node(
-                        tradition_id,
-                        "Tradition",
-                        {
-                            "name": tradition_name,
-                            "canonical_id": tradition_id,
-                            "ruleset_id": resolved_ruleset_id,
-                            "entity_role": "entity",
-                            "aliases": [tradition_name] + ([tradition_alias] if tradition_alias else []),
-                            "source_documents": [doc_id],
-                            "source_chunk_ids": [chunk_id],
-                            "source_pages": [chunk.page],
-                            "extraction_method": "heuristic",
-                        },
-                    )
-                    entity_nodes[tradition_id] = tradition_id
-                    _add_entity_index(
-                        entity_ids_by_name,
-                        tradition_id,
-                        [tradition_name, tradition_alias] if tradition_alias else [tradition_name],
-                    )
-                graph.add_edge(
-                    canonical_id,
-                    tradition_id,
-                    "has_tradition",
-                    {
-                        "source_document": doc_id,
-                        "page": chunk.page,
-                        "source_chunk_id": chunk_id,
-                        "extraction_method": "heuristic",
-                    },
-                )
+        canonical_id = primary_canonical_id
 
-            if chunk.spell_rank is not None:
-                rank_name = f"Rank {chunk.spell_rank}"
-                rank_id = _canonical_entity_id(
-                    resolved_ruleset_id,
-                    "SpellRank",
-                    rank_name,
-                    fallback_key=f"{doc_id}:{chunk_id}:rank:{chunk.spell_rank}",
-                )
-                if rank_id not in entity_nodes:
-                    graph.add_node(
-                        rank_id,
-                        "SpellRank",
-                        {
-                            "name": rank_name,
-                            "canonical_id": rank_id,
-                            "ruleset_id": resolved_ruleset_id,
-                            "entity_role": "entity",
-                            "aliases": [str(chunk.spell_rank)],
-                            "source_documents": [doc_id],
-                            "source_chunk_ids": [chunk_id],
-                            "source_pages": [chunk.page],
-                            "extraction_method": "heuristic",
-                        },
-                    )
-                    entity_nodes[rank_id] = rank_id
-                    _add_entity_index(entity_ids_by_name, rank_id, [rank_name, str(chunk.spell_rank)])
-                graph.add_edge(
-                    canonical_id,
-                    rank_id,
-                    "has_rank",
-                    {
-                        "source_document": doc_id,
-                        "page": chunk.page,
-                        "source_chunk_id": chunk_id,
-                        "extraction_method": "heuristic",
-                    },
-                )
-
-            for tag in chunk.tags:
-                tag_raw = _normalize_entity_name(tag)
-                tag_name, tag_alias = _resolve_alias_name(tag_raw, alias_map)
-                tag_id = _canonical_entity_id(
-                    resolved_ruleset_id,
-                    "Tag",
-                    tag_name,
-                    fallback_key=f"{doc_id}:{chunk_id}:tag:{tag}",
-                )
-                if tag_id not in entity_nodes:
-                    graph.add_node(
-                        tag_id,
-                        "Tag",
-                        {
-                            "name": tag_name,
-                            "canonical_id": tag_id,
-                            "ruleset_id": resolved_ruleset_id,
-                            "entity_role": "entity",
-                            "aliases": [tag_name] + ([tag_alias] if tag_alias else []),
-                            "source_documents": [doc_id],
-                            "source_chunk_ids": [chunk_id],
-                            "source_pages": [chunk.page],
-                            "extraction_method": "heuristic",
-                        },
-                    )
-                    entity_nodes[tag_id] = tag_id
-                    _add_entity_index(
-                        entity_ids_by_name,
-                        tag_id,
-                        [tag_name, tag_alias] if tag_alias else [tag_name],
-                    )
-                graph.add_edge(
-                    canonical_id,
-                    tag_id,
-                    "has_tag",
-                    {
-                        "source_document": doc_id,
-                        "page": chunk.page,
-                        "source_chunk_id": chunk_id,
-                        "extraction_method": "heuristic",
-                    },
-                )
-
-            for stat_key, stat_value in (chunk.spell_stats or {}).items():
-                stat_name = _normalize_entity_name(f"{stat_key}: {stat_value}")
-                stat_id = _canonical_entity_id(
-                    resolved_ruleset_id,
-                    "SpellStat",
-                    stat_name,
-                    fallback_key=f"{doc_id}:{chunk_id}:stat:{stat_key}:{stat_value}",
-                )
-                if stat_id not in entity_nodes:
-                    graph.add_node(
-                        stat_id,
-                        "SpellStat",
-                        {
-                            "name": stat_name,
-                            "canonical_id": stat_id,
-                            "ruleset_id": resolved_ruleset_id,
-                            "entity_role": "entity",
-                            "stat_key": stat_key,
-                            "stat_value": stat_value,
-                            "source_documents": [doc_id],
-                            "source_chunk_ids": [chunk_id],
-                            "source_pages": [chunk.page],
-                            "extraction_method": "heuristic",
-                        },
-                    )
-                    entity_nodes[stat_id] = stat_id
-                    _add_entity_index(
-                        entity_ids_by_name,
-                        stat_id,
-                        [stat_name, stat_key, stat_value],
-                    )
-                graph.add_edge(
-                    canonical_id,
-                    stat_id,
-                    "has_stat",
-                    {
-                        "source_document": doc_id,
-                        "page": chunk.page,
-                        "source_chunk_id": chunk_id,
-                        "extraction_method": "heuristic",
-                    },
-                )
-
-        relation_mentions = _extract_relation_mentions(chunk.text)
-        if relation_mentions:
-            for relation, target_name in relation_mentions:
+        # Relation mentions: single source from Phase 1 (bundle.relation_mentions), no re-extraction
+        chunk_relation_mentions = [
+            (rel, tname) for (cid, rel, tname) in bundle.relation_mentions if cid == chunk_id
+        ]
+        if chunk_relation_mentions:
+            for relation, target_name in chunk_relation_mentions:
                 resolved_target, alias_source = _resolve_alias_name(target_name, alias_map)
                 if not resolved_target:
                     continue
-                target_id = entity_ids_by_name.get(_normalize_entity_key(resolved_target))
+                target_id = entity_registry.namekey_to_id.get(_normalize_entity_key(resolved_target))
+                target_was_existing = target_id is not None
                 if not target_id:
                     target_id = _canonical_entity_id(
                         resolved_ruleset_id,
@@ -1235,7 +2263,7 @@ def build_chunk_graph(
                         resolved_target,
                         fallback_key=f"{doc_id}:{chunk_id}:relation:{resolved_target}",
                     )
-                    if target_id not in entity_nodes:
+                    if target_id not in seen_entity_ids:
                         graph.add_node(
                             target_id,
                             "Concept",
@@ -1253,9 +2281,9 @@ def build_chunk_graph(
                                 "extraction_method": "relation_pattern",
                             },
                         )
-                        entity_nodes[target_id] = target_id
+                        seen_entity_ids.add(target_id)
                         _add_entity_index(
-                            entity_ids_by_name,
+                            entity_registry.namekey_to_id,
                             target_id,
                             [resolved_target, alias_source] if alias_source else [resolved_target],
                         )
@@ -1282,12 +2310,22 @@ def build_chunk_graph(
                         "extraction_method": "relation_pattern",
                     },
                 )
-                if target_id and chunk_id and graph.nodes:
-                    for node in graph.nodes:
-                        if node.get("id") == target_id and node.get("entity_role") == "entity":
-                            entity_to_chunks.setdefault(target_id, set()).add(chunk_id)
-                            break
-                    entity_to_chunks.setdefault(target_id, set()).add(chunk_id)
+                # Only entity_role=="entity" participates in structural_coreference (no provisionals)
+                if target_was_existing and target_id:
+                    idx = graph.node_index.get(target_id)
+                    if idx is not None and graph.nodes[idx].get("entity_role") == "entity":
+                        entity_to_chunks.setdefault(target_id, set()).add(chunk_id)
+
+    # Phase 3b: scope-based describes (header_scope); same semantics, explicit pass
+    apply_header_scope_describes(
+        graph=graph,
+        chunks=chunks,
+        chunk_order=chunk_order,
+        candidates_by_chunk=candidates_by_chunk,
+        canon_result=canon_result,
+        primary_canonical_id_by_chunk=primary_canonical_id_by_chunk,
+        doc_id=doc_id,
+    )
 
     _connect_chunks_by_entity(graph, entity_to_chunks)
     summary = _summarize_graph(graph)
@@ -1296,6 +2334,350 @@ def build_chunk_graph(
     graph.stats = summary
     _validate_graph(graph)
     return graph
+
+
+# -----------------------------------------------------------------------------
+# Phase 5: Fact ownership assignment (extracted boundary)
+# -----------------------------------------------------------------------------
+
+
+def _assign_fact_ownership(
+    graph: Graph,
+    facts: List[Any],
+    clause_map: Dict[str, Any],
+    chunk_map: Dict[str, EnrichedChunk],
+    doc_id: str,
+    resolved_ruleset_id: str,
+    book_id: str,
+    chunk_to_entities: Dict[str, List[str]],
+    describes_meta: Dict[Tuple[str, str], Dict[str, Any]],
+    entity_type_by_id: Dict[str, str],
+    entity_name_by_id: Dict[str, str],
+    clause_mechanic_keys: Dict[str, Set[str]],
+    existing_node_ids: Set[str],
+    fact_node_by_id: Dict[str, Dict[str, object]],
+    entity_ids_by_key_type: Dict[Tuple[str, str], List[str]],
+) -> OwnershipResult:
+    """
+    Assign each fact to a mechanic-frame owner; add belongs_to/asserts_about and
+    procedure/step/parameter nodes and edges. Returns ownership result for
+    downstream passes (mechanic relations, polish).
+    """
+    from .rule_facts import FactType
+
+    debug_chunk_ids: Set[str] = set()
+    debug_chunks_env = os.environ.get("DM_DEBUG_BELONGS_TO_CHUNKS")
+    if debug_chunks_env:
+        debug_chunk_ids = {
+            cid.strip() for cid in debug_chunks_env.split(",") if cid.strip()
+        }
+
+    fact_owner_by_id: Dict[str, str] = {}
+    fact_chunk_by_id: Dict[str, str] = {}
+    multi_candidate_fact_ids: Set[str] = set()
+    missing_candidate_fact_ids: Set[str] = set()
+    procedure_anchor_edges: Set[Tuple[str, str, str]] = set()
+
+    for fact in facts:
+        clause = clause_map.get(fact.clause_id)
+        chunk_id = clause.parent_chunk_id if clause else fact.clause_id.split("::clause_")[0]
+        chunk = chunk_map.get(chunk_id)
+        fact_chunk_by_id[fact.fact_id] = chunk_id
+        candidate_ids = [
+            eid
+            for eid in chunk_to_entities.get(chunk_id, [])
+            if entity_type_by_id.get(eid) in MECHANIC_FRAME_TYPES
+        ]
+        entity_id = None
+        secondary_candidates: List[str] = []
+        if candidate_ids:
+            if chunk_id in debug_chunk_ids:
+                debug_candidates = [
+                    {
+                        "id": c,
+                        "name": entity_name_by_id.get(c, ""),
+                        "type": entity_type_by_id.get(c, ""),
+                        "extraction_method": describes_meta.get((chunk_id, c), {}).get("extraction_method"),
+                    }
+                    for c in candidate_ids
+                ]
+                print(
+                    f"🔎 [BELONGS_TO DEBUG] chunk={chunk_id} "
+                    f"fact={fact.fact_id} subject={fact.subject} "
+                    f"candidates={debug_candidates}"
+                )
+            subject_key = _normalize_entity_key(fact.subject or "")
+            if subject_key:
+                subject_matched = [
+                    c for c in candidate_ids
+                    if _normalize_entity_key(entity_name_by_id.get(c, "")) == subject_key
+                ]
+                if subject_matched:
+                    candidate_ids = subject_matched
+            if (
+                fact.fact_type.value == "requires"
+                and fact.object
+                and len(candidate_ids) > 1
+            ):
+                object_key = _normalize_entity_key(fact.object)
+                if object_key:
+                    object_matched = [
+                        c for c in candidate_ids
+                        if _normalize_entity_key(entity_name_by_id.get(c, "")) == object_key
+                    ]
+                    if object_matched:
+                        candidate_ids = object_matched
+            clause_keys = clause_mechanic_keys.get(fact.clause_id, set())
+            if clause_keys and len(candidate_ids) > 1:
+                mention_matched = [
+                    c for c in candidate_ids
+                    if _normalize_entity_key(entity_name_by_id.get(c, "")) in clause_keys
+                ]
+                if mention_matched:
+                    candidate_ids = mention_matched
+            if len(candidate_ids) > 1:
+                header_scope_candidates = [
+                    c for c in candidate_ids
+                    if describes_meta.get((chunk_id, c), {}).get("extraction_method") == "header_scope"
+                ]
+                if header_scope_candidates:
+                    candidate_ids = header_scope_candidates
+            if len(candidate_ids) > 1:
+                multi_candidate_fact_ids.add(fact.fact_id)
+            candidate_ids = _sort_ownership_candidates(
+                candidate_ids, entity_type_by_id, entity_name_by_id
+            )
+            entity_id = candidate_ids[0]
+            if len(candidate_ids) > 1:
+                secondary_candidates = [c for c in candidate_ids[1:] if c != entity_id]
+        else:
+            missing_candidate_fact_ids.add(fact.fact_id)
+
+        if entity_id:
+            graph.add_edge(
+                fact.fact_id,
+                entity_id,
+                "belongs_to",
+                {
+                    "source_document": doc_id,
+                    "source_chunk_id": chunk_id,
+                    "clause_id": fact.clause_id,
+                    "extraction_method": "structural_join",
+                },
+            )
+            graph.add_edge(
+                fact.fact_id,
+                entity_id,
+                "asserts_about",
+                {
+                    "source_document": doc_id,
+                    "source_chunk_id": chunk_id,
+                    "clause_id": fact.clause_id,
+                    "extraction_method": "causal_anchor",
+                },
+            )
+            if fact.override_target and fact.override_target.startswith("procedure:"):
+                procedure_id = fact.override_target
+                procedure_name = procedure_id.split(":", 1)[-1].replace("_", " ")
+                if procedure_id not in existing_node_ids:
+                    graph.add_node(
+                        procedure_id,
+                        "Procedure",
+                        {
+                            "name": procedure_name,
+                            "canonical_id": procedure_id,
+                            "ruleset_id": resolved_ruleset_id,
+                            "entity_role": "procedure",
+                            "source_documents": [doc_id],
+                            "source_chunk_ids": [chunk_id],
+                            "source_pages": [chunk.page] if chunk else [],
+                            "extraction_method": "override_procedure",
+                        },
+                    )
+                    existing_node_ids.add(procedure_id)
+                step_id = _derive_procedure_step_id(
+                    procedure_id, clause.text if clause else None
+                )
+                if step_id and step_id not in existing_node_ids:
+                    step_label = step_id.split("#step:", 1)[-1].replace("_", " ")
+                    graph.add_node(
+                        step_id,
+                        "ProcedureStep",
+                        {
+                            "name": f"{procedure_name} / {step_label}",
+                            "canonical_id": step_id,
+                            "ruleset_id": resolved_ruleset_id,
+                            "entity_role": "procedure_step",
+                            "procedure_id": procedure_id,
+                            "source_documents": [doc_id],
+                            "source_chunk_ids": [chunk_id],
+                            "source_pages": [chunk.page] if chunk else [],
+                            "extraction_method": "override_procedure_step",
+                        },
+                    )
+                    existing_node_ids.add(step_id)
+                    graph.add_edge(
+                        step_id,
+                        procedure_id,
+                        "step_of",
+                        {
+                            "source_document": doc_id,
+                            "source_chunk_id": chunk_id,
+                            "clause_id": fact.clause_id,
+                            "extraction_method": "procedure_step",
+                        },
+                    )
+                threshold_override = (
+                    _extract_dying_threshold_override(clause.text if clause else None)
+                    if procedure_id == "procedure:dying"
+                    else None
+                )
+                if threshold_override:
+                    new_value, old_value = threshold_override
+                    parameter_id = f"{procedure_id}#param:death_threshold"
+                    if parameter_id not in existing_node_ids:
+                        graph.add_node(
+                            parameter_id,
+                            "ProcedureParameter",
+                            {
+                                "name": "dying / death threshold",
+                                "canonical_id": parameter_id,
+                                "ruleset_id": resolved_ruleset_id,
+                                "entity_role": "procedure_parameter",
+                                "procedure_id": procedure_id,
+                                "source_documents": [doc_id],
+                                "source_chunk_ids": [chunk_id],
+                                "source_pages": [chunk.page] if chunk else [],
+                                "extraction_method": "procedure_parameter",
+                            },
+                        )
+                        existing_node_ids.add(parameter_id)
+                        graph.add_edge(
+                            parameter_id,
+                            procedure_id,
+                            "parameter_of",
+                            {
+                                "source_document": doc_id,
+                                "source_chunk_id": chunk_id,
+                                "clause_id": fact.clause_id,
+                                "extraction_method": "procedure_parameter",
+                            },
+                        )
+                    graph.add_edge(
+                        fact.fact_id,
+                        parameter_id,
+                        "modifies_parameter",
+                        {
+                            "source_document": doc_id,
+                            "source_chunk_id": chunk_id,
+                            "clause_id": fact.clause_id,
+                            "parameter_name": "death_threshold",
+                            "new_value": new_value,
+                            "old_value": old_value,
+                            "extraction_method": "procedure_parameter",
+                        },
+                    )
+                graph.add_edge(
+                    fact.fact_id,
+                    procedure_id,
+                    "targets_procedure",
+                    {
+                        "source_document": doc_id,
+                        "source_chunk_id": chunk_id,
+                        "clause_id": fact.clause_id,
+                        "extraction_method": "override_procedure_target",
+                    },
+                )
+                if step_id:
+                    graph.add_edge(
+                        fact.fact_id,
+                        step_id,
+                        "targets_step",
+                        {
+                            "source_document": doc_id,
+                            "source_chunk_id": chunk_id,
+                            "clause_id": fact.clause_id,
+                            "extraction_method": "override_procedure_target",
+                        },
+                    )
+                replace_target = step_id or procedure_id
+                graph.add_edge(
+                    fact.fact_id,
+                    replace_target,
+                    "replaces_effect",
+                    {
+                        "source_document": doc_id,
+                        "source_chunk_id": chunk_id,
+                        "clause_id": fact.clause_id,
+                        "extraction_method": "override_procedure",
+                    },
+                )
+                if fact.fact_type == FactType.PREVENTS:
+                    graph.add_edge(
+                        fact.fact_id,
+                        replace_target,
+                        "suppresses",
+                        {
+                            "source_document": doc_id,
+                            "source_chunk_id": chunk_id,
+                            "clause_id": fact.clause_id,
+                            "extraction_method": "override_procedure",
+                        },
+                    )
+                for relation, target_types, target_names in PROCEDURE_ANCHOR_MAP.get(
+                    procedure_id, []
+                ):
+                    for target_name in target_names:
+                        target_key = _normalize_entity_key(target_name)
+                        if not target_key:
+                            continue
+                        for target_type in target_types:
+                            for target_id in entity_ids_by_key_type.get(
+                                (target_type, target_key), []
+                            ):
+                                edge_key = (procedure_id, target_id, relation)
+                                if edge_key in procedure_anchor_edges:
+                                    continue
+                                graph.add_edge(
+                                    procedure_id,
+                                    target_id,
+                                    relation,
+                                    {
+                                        "source_document": doc_id,
+                                        "source_chunk_id": chunk_id,
+                                        "clause_id": fact.clause_id,
+                                        "extraction_method": "procedure_anchor",
+                                    },
+                                )
+                                procedure_anchor_edges.add(edge_key)
+            fact_owner_by_id[fact.fact_id] = entity_id
+            if secondary_candidates:
+                fact_node = fact_node_by_id.get(fact.fact_id)
+                if fact_node is not None:
+                    fact_node["ownership_candidates"] = list(candidate_ids)
+                    fact_node["possible_context_of"] = list(secondary_candidates)
+
+    belongs_to_count = len(fact_owner_by_id)
+    print(
+        "✅ Added "
+        f"{belongs_to_count} BELONGS_TO edges ({belongs_to_count}/{len(facts)} facts)"
+    )
+    if multi_candidate_fact_ids:
+        print(
+            "⚠️  BELONGS_TO: "
+            f"{len(multi_candidate_fact_ids)} facts had multiple mechanic-frame candidates."
+        )
+    if missing_candidate_fact_ids:
+        print(
+            "⚠️  BELONGS_TO: "
+            f"{len(missing_candidate_fact_ids)} facts had no mechanic-frame candidate."
+        )
+    return OwnershipResult(
+        fact_owner_by_id=fact_owner_by_id,
+        fact_chunk_by_id=fact_chunk_by_id,
+        multi_candidate_fact_ids=multi_candidate_fact_ids,
+        missing_candidate_fact_ids=missing_candidate_fact_ids,
+    )
 
 
 def build_fact_graph(
@@ -1335,6 +2717,7 @@ def build_fact_graph(
     clause_mechanic_keys: Dict[str, Set[str]] = {}
     facts = []
     mechanic_mentions_by_chunk: Dict[str, Set[str]] = {}
+    fact_node_by_id: Dict[str, Dict[str, object]] = {}
 
     if vocabularies is None:
         if mention_type_mappings is None:
@@ -1409,6 +2792,13 @@ def build_fact_graph(
             if chunk_id not in mechanic_frame_by_chunk:
                 mechanic_frame_by_chunk[chunk_id] = canonical_id
             if canonical_id not in existing_node_ids:
+                mechanic_meta = _classify_mechanic_kind(
+                    mention_name,
+                    entity_type="MechanicFrame",
+                    content_kind=chunk.content_kind if chunk else None,
+                    block_type=chunk.block_type if chunk else None,
+                    tags=chunk.tags if chunk else None,
+                )
                 graph.add_node(
                     canonical_id,
                     "MechanicFrame",
@@ -1424,6 +2814,7 @@ def build_fact_graph(
                         "source_chunk_ids": [chunk_id],
                         "source_pages": [chunk.page] if chunk else [],
                         "extraction_method": "mention_promotion",
+                        **mechanic_meta,
                     },
                 )
                 existing_node_ids.add(canonical_id)
@@ -1487,6 +2878,7 @@ def build_fact_graph(
                 "extraction_method": "rule_fact_extraction",
             },
         )
+        fact_node_by_id[fact.fact_id] = graph.nodes[-1]
 
         if include_fact_chunk_links and chunk_id:
             graph.add_edge(
@@ -1511,6 +2903,16 @@ def build_fact_graph(
             if node.get("name"):
                 entity_name_by_id[node_id] = node.get("name")
 
+    entity_ids_by_key_type: Dict[Tuple[str, str], List[str]] = {}
+    for node_id, name in entity_name_by_id.items():
+        node_type = entity_type_by_id.get(node_id)
+        if not node_type or not name:
+            continue
+        name_key = _normalize_entity_key(name)
+        if not name_key:
+            continue
+        entity_ids_by_key_type.setdefault((node_type, name_key), []).append(node_id)
+
     chunk_to_entities: Dict[str, List[str]] = {}
     describes_meta: Dict[Tuple[str, str], Dict[str, object]] = {}
     for edge in graph.edges:
@@ -1525,132 +2927,38 @@ def build_fact_graph(
                     continue
                 describes_meta[key] = edge
 
-    debug_chunk_ids: Set[str] = set()
-    debug_chunks_env = os.environ.get("DM_DEBUG_BELONGS_TO_CHUNKS")
-    if debug_chunks_env:
-        debug_chunk_ids = {
-            chunk_id.strip()
-            for chunk_id in debug_chunks_env.split(",")
-            if chunk_id.strip()
-        }
-
-    belongs_to_count = 0
-    multi_candidate_count = 0
-    missing_candidate_count = 0
-    for fact in facts:
-        clause = clause_map.get(fact.clause_id)
-        chunk_id = clause.parent_chunk_id if clause else fact.clause_id.split("::clause_")[0]
-        candidate_ids = [
-            entity_id
-            for entity_id in chunk_to_entities.get(chunk_id, [])
-            if entity_type_by_id.get(entity_id) in MECHANIC_FRAME_TYPES
-        ]
-        entity_id = None
-        if candidate_ids:
-            if chunk_id in debug_chunk_ids:
-                debug_candidates = []
-                for candidate in candidate_ids:
-                    debug_candidates.append(
-                        {
-                            "id": candidate,
-                            "name": entity_name_by_id.get(candidate, ""),
-                            "type": entity_type_by_id.get(candidate, ""),
-                            "extraction_method": describes_meta.get((chunk_id, candidate), {}).get(
-                                "extraction_method"
-                            ),
-                        }
-                    )
-                print(
-                    f"🔎 [BELONGS_TO DEBUG] chunk={chunk_id} "
-                    f"fact={fact.fact_id} subject={fact.subject} "
-                    f"candidates={debug_candidates}"
-                )
-
-            subject_key = _normalize_entity_key(fact.subject or "")
-            if subject_key:
-                subject_matched = [
-                    candidate
-                    for candidate in candidate_ids
-                    if _normalize_entity_key(entity_name_by_id.get(candidate, "")) == subject_key
-                ]
-                if subject_matched:
-                    candidate_ids = subject_matched
-            if (
-                fact.fact_type.value == "requires"
-                and fact.object
-                and len(candidate_ids) > 1
-            ):
-                object_key = _normalize_entity_key(fact.object)
-                if object_key:
-                    object_matched = [
-                        candidate
-                        for candidate in candidate_ids
-                        if _normalize_entity_key(entity_name_by_id.get(candidate, ""))
-                        == object_key
-                    ]
-                    if object_matched:
-                        candidate_ids = object_matched
-            clause_keys = clause_mechanic_keys.get(fact.clause_id, set())
-            if clause_keys and len(candidate_ids) > 1:
-                mention_matched = [
-                    candidate
-                    for candidate in candidate_ids
-                    if _normalize_entity_key(entity_name_by_id.get(candidate, "")) in clause_keys
-                ]
-                if mention_matched:
-                    candidate_ids = mention_matched
-            if len(candidate_ids) > 1:
-                header_scope_candidates = [
-                    candidate
-                    for candidate in candidate_ids
-                    if describes_meta.get((chunk_id, candidate), {}).get("extraction_method")
-                    == "header_scope"
-                ]
-                if header_scope_candidates:
-                    candidate_ids = header_scope_candidates
-            if len(candidate_ids) > 1:
-                multi_candidate_count += 1
-            candidate_ids.sort(
-                key=lambda candidate: (
-                    MECHANIC_FRAME_TYPE_PRIORITY.index(entity_type_by_id.get(candidate, ""))
-                    if entity_type_by_id.get(candidate) in MECHANIC_FRAME_TYPES
-                    else len(MECHANIC_FRAME_TYPE_PRIORITY),
-                    _normalize_entity_key(entity_name_by_id.get(candidate, "")),
-                    candidate,
-                )
-            )
-            entity_id = candidate_ids[0]
-        else:
-            missing_candidate_count += 1
-
-        if entity_id:
-            graph.add_edge(
-                fact.fact_id,
-                entity_id,
-                "belongs_to",
-                {
-                    "source_document": doc_id,
-                    "source_chunk_id": chunk_id,
-                    "clause_id": fact.clause_id,
-                    "extraction_method": "structural_join",
-                },
-            )
-            belongs_to_count += 1
-
-    print(
-        "✅ Added "
-        f"{belongs_to_count} BELONGS_TO edges ({belongs_to_count}/{len(facts)} facts)"
+    ownership_result = _assign_fact_ownership(
+        graph=graph,
+        facts=facts,
+        clause_map=clause_map,
+        chunk_map=chunk_map,
+        doc_id=doc_id,
+        resolved_ruleset_id=resolved_ruleset_id,
+        book_id=book_id,
+        chunk_to_entities=chunk_to_entities,
+        describes_meta=describes_meta,
+        entity_type_by_id=entity_type_by_id,
+        entity_name_by_id=entity_name_by_id,
+        clause_mechanic_keys=clause_mechanic_keys,
+        existing_node_ids=existing_node_ids,
+        fact_node_by_id=fact_node_by_id,
+        entity_ids_by_key_type=entity_ids_by_key_type,
     )
-    if multi_candidate_count:
-        print(
-            "⚠️  BELONGS_TO: "
-            f"{multi_candidate_count} facts had multiple mechanic-frame candidates."
-        )
-    if missing_candidate_count:
-        print(
-            "⚠️  BELONGS_TO: "
-            f"{missing_candidate_count} facts had no mechanic-frame candidate."
-        )
+    fact_owner_by_id = ownership_result.fact_owner_by_id
+    fact_chunk_by_id = ownership_result.fact_chunk_by_id
+
+    mechanic_relations_added = _add_mechanic_frame_relations(
+        graph=graph,
+        facts=facts,
+        clause_mechanic_keys=clause_mechanic_keys,
+        entity_name_by_id=entity_name_by_id,
+        entity_type_by_id=entity_type_by_id,
+        fact_owner_by_id=fact_owner_by_id,
+        fact_chunk_by_id=fact_chunk_by_id,
+        doc_id=doc_id,
+    )
+    if mechanic_relations_added:
+        print(f"✅ Added {mechanic_relations_added} mechanic-frame relations")
 
     relations = generate_fact_relations(
         facts,
@@ -1658,6 +2966,17 @@ def build_fact_graph(
         resolved_config=resolved_config,
         allow_cross_section=allow_cross_section,
         include_partial=include_partial,
+        fact_owner_by_id=fact_owner_by_id,
+        owner_name_by_id=entity_name_by_id,
+    )
+
+    # Phase 5 (final): polish — mechanic_kind/retrieval_target from fact relations
+    _apply_phase1_polish(
+        graph=graph,
+        facts=facts,
+        relations=relations,
+        fact_owner_by_id=fact_owner_by_id,
+        entity_type_by_id=entity_type_by_id,
     )
 
     for relation in relations:

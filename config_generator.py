@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from config_profile import RulesetProfile
+from config_profile import RulesetProfile, evaluate_profile_quality
 
 if TYPE_CHECKING:
     from diagnostics_store import GenerationDiagnostics
@@ -22,6 +22,7 @@ class RulesetConfiguration(BaseModel):
     source_fingerprint: Optional[str] = None
     schema_version: Optional[str] = "1.0"
     deterministic_rules: Dict[str, Any]
+    deterministic_rules_evidence: Optional[List[Dict[str, Any]]] = None
     nondeterministic_flags: List[str]
     drift_criteria: Dict[str, Any]
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -51,9 +52,13 @@ def generate_ruleset_config_with_retries(
 
 
 def _summarize_profile(profile: RulesetProfile) -> str:
+    noise_count = len(profile.noise_headings) if hasattr(profile, "noise_headings") else 0
+    sample_count = len(profile.samples or [])
     return (
-        f"headings={len(profile.heading_hierarchy)}, "
-        f"block_types={len(profile.block_type_distribution)}"
+        f"core_headings={len(profile.heading_hierarchy)}, "
+        f"noise_headings={noise_count}, "
+        f"block_types={len(profile.block_type_distribution)}, "
+        f"samples={sample_count}"
     )
 
 
@@ -68,6 +73,21 @@ def generate_ruleset_config_with_diagnostics(
     errors: List[str] = []
     validator = validator or (lambda payload: RulesetConfiguration(**payload))
     last_output: Optional[Dict[str, Any]] = None
+
+    quality_errors = evaluate_profile_quality(profile)
+    if quality_errors:
+        from diagnostics_store import GenerationDiagnostics
+
+        diagnostics = GenerationDiagnostics(
+            ruleset_id=profile.ruleset_id,
+            doc_signature=profile.doc_signature,
+            attempt_number=0,
+            profile_summary=profile_summary_builder(profile),
+            prompt_payload=prompt_payload,
+            model_output=None,
+            validation_errors=quality_errors,
+        )
+        return None, diagnostics
 
     for attempt in range(1, max_retries + 1):
         payload = generator(profile, attempt)

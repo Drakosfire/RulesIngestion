@@ -103,9 +103,10 @@ def _run_ocr_spelling_gates(
     chunks: List[Dict[str, Any]],
     unresolved_rate_max: float,
     suspect_token_rate_max: float,
+    suspect_token_min_tokens: int,
     near_duplicate_max: int,
     near_duplicate_rate_max: float,
-    allow_gate_fail: bool,
+    hard_fail: bool,
 ) -> Dict[str, Any]:
     strict_candidates = [c for c in candidates if (c.get("relation") in STRICT_RELATIONS)]
     unresolved = [
@@ -126,7 +127,8 @@ def _run_ocr_spelling_gates(
         failures.append(
             f"unresolved_rate={unresolved_rate:.2%} (limit {unresolved_rate_max:.2%})"
         )
-    if suspect_rate > suspect_token_rate_max:
+    suspect_gate_skipped = total_tokens < suspect_token_min_tokens
+    if not suspect_gate_skipped and suspect_rate > suspect_token_rate_max:
         failures.append(
             f"suspect_token_rate={suspect_rate:.2%} (limit {suspect_token_rate_max:.2%})"
         )
@@ -144,19 +146,22 @@ def _run_ocr_spelling_gates(
         "suspect_token_rate": round(suspect_rate, 4),
         "suspect_token_count": suspect_tokens,
         "total_tokens": total_tokens,
+        "suspect_token_gate_skipped": suspect_gate_skipped,
+        "suspect_token_min_tokens": suspect_token_min_tokens,
         "near_duplicate_count": near_dup_count,
         "near_duplicate_rate": round(near_dup_rate, 4),
         "near_duplicate_samples": near_dup_samples,
         "title_count": len(titles),
         "gate_failures": failures,
+        "prune_unresolved_strict": unresolved_rate > unresolved_rate_max,
     }
 
     if failures:
         print("⚠️  OCR/spelling gates failed:")
         for failure in failures:
             print(f"  - {failure}")
-        if not allow_gate_fail:
+        if hard_fail:
             raise ValueError("OCR/spelling gates failed; aborting deterministic edge discovery.")
-        print("⚠️  Continuing despite gate failures (allow_gate_fail enabled).")
+        print("⚠️  Continuing despite gate failures (soft-gate mode).")
 
     return summary

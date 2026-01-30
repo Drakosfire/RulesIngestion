@@ -101,6 +101,9 @@ def run_embedding_benchmark(
     graph_boost_seed_top_n: int = 1,
     graph_boost_same_kind_only: bool = False,
     graph_boost_decay: float = 1.0,
+    routing_prior_boost: float = 0.0,
+    routing_prior_pool_multiplier: float = 1.0,
+    routing_seeded_boost: bool = False,
     reuse_embeddings: bool = False,
     document_ids_filter: Optional[Sequence[str]] = None,
     document_prefixes: Optional[Sequence[str]] = None,
@@ -520,6 +523,10 @@ def run_embedding_benchmark(
             model=model,
         )
 
+    graph_boost_source_value = graph_boost_source
+    if routing_seeded_boost:
+        graph_boost_source_value = "routed"
+
     adjacency_by_document: Dict[str, Dict[str, Set[str]]] = {}
     if graph_boost or expand_gold:
         for document_id in document_ids:
@@ -539,6 +546,7 @@ def run_embedding_benchmark(
     chapter_routing_rerank_change_rate = None
     chapter_routing_rerank_change_count = None
     chapter_routing_rerank_query_count = None
+    routing_chunk_ids_by_query: Optional[List[Optional[Set[str]]]] = None
     traversal_baseline_scores = None
     traversal_baseline_details: Optional[List[Dict[str, Any]]] = None
     traversal_delta = None
@@ -627,6 +635,23 @@ def run_embedding_benchmark(
             chapter_routing_rerank_change_rate = (
                 rerank_change_count / rerank_query_count if rerank_query_count else 0.0
             )
+
+    routing_prior_enabled = bool(routing_prior_boost > 0 or routing_seeded_boost)
+    if routing_prior_enabled and routing_result is not None:
+        routing_chunk_ids_by_query = []
+        for chapters in routing_result.final_chapters_by_query:
+            if not chapters:
+                routing_chunk_ids_by_query.append(None)
+                continue
+            chunk_set: Set[str] = set()
+            for chapter_id in chapters:
+                for idx in chapter_to_chunk_indices.get(chapter_id, []):
+                    chunk_set.add(chunk_ids[idx])
+            routing_chunk_ids_by_query.append(chunk_set if chunk_set else None)
+
+    score_allowed_chunk_ids = allowed_chunk_ids_by_query
+    if routing_prior_enabled:
+        score_allowed_chunk_ids = None
 
     top_k_list = sorted(set(int(k) for k in top_k))
 
@@ -864,14 +889,21 @@ def run_embedding_benchmark(
         chunk_document_ids=chunk_document_ids,
         chunk_book_ids=chunk_book_ids,
         chunk_kind_by_id=chunk_kind_by_id,
-        allowed_chunk_ids_by_query=allowed_chunk_ids_by_query,
+        allowed_chunk_ids_by_query=score_allowed_chunk_ids,
         graph_boost=graph_boost,
         graph_boost_depth=graph_boost_depth,
         graph_boost_top_k=graph_boost_top_k,
-        graph_boost_source=graph_boost_source,
+        graph_boost_source=graph_boost_source_value,
         graph_boost_seed_top_n=graph_boost_seed_top_n,
         graph_boost_same_kind_only=graph_boost_same_kind_only,
         graph_boost_decay=graph_boost_decay,
+        routing_boost=routing_prior_boost,
+        routing_boost_by_query=routing_chunk_ids_by_query,
+        routing_boost_pool_multiplier=routing_prior_pool_multiplier,
+        routing_chapters_by_query=routing_result.final_chapters_by_query
+        if routing_result
+        else None,
+        chunk_to_chapter=chunk_to_chapter,
     )
     eval_estimate_expanded_ms = None
     if expand_gold:
@@ -888,14 +920,21 @@ def run_embedding_benchmark(
             chunk_document_ids=chunk_document_ids,
             chunk_book_ids=chunk_book_ids,
             chunk_kind_by_id=chunk_kind_by_id,
-            allowed_chunk_ids_by_query=allowed_chunk_ids_by_query,
+            allowed_chunk_ids_by_query=score_allowed_chunk_ids,
             graph_boost=graph_boost,
             graph_boost_depth=graph_boost_depth,
             graph_boost_top_k=graph_boost_top_k,
-            graph_boost_source=graph_boost_source,
+            graph_boost_source=graph_boost_source_value,
             graph_boost_seed_top_n=graph_boost_seed_top_n,
             graph_boost_same_kind_only=graph_boost_same_kind_only,
             graph_boost_decay=graph_boost_decay,
+            routing_boost=routing_prior_boost,
+            routing_boost_by_query=routing_chunk_ids_by_query,
+            routing_boost_pool_multiplier=routing_prior_pool_multiplier,
+            routing_chapters_by_query=routing_result.final_chapters_by_query
+            if routing_result
+            else None,
+            chunk_to_chapter=chunk_to_chapter,
         )
     if eval_estimate_strict_ms is not None:
         estimate_total = (
@@ -931,14 +970,21 @@ def run_embedding_benchmark(
         chunk_document_ids=chunk_document_ids,
         chunk_book_ids=chunk_book_ids,
         chunk_kind_by_id=chunk_kind_by_id,
-        allowed_chunk_ids_by_query=allowed_chunk_ids_by_query,
+        allowed_chunk_ids_by_query=score_allowed_chunk_ids,
         graph_boost=graph_boost,
         graph_boost_depth=graph_boost_depth,
         graph_boost_top_k=graph_boost_top_k,
-        graph_boost_source=graph_boost_source,
+        graph_boost_source=graph_boost_source_value,
         graph_boost_seed_top_n=graph_boost_seed_top_n,
         graph_boost_same_kind_only=graph_boost_same_kind_only,
         graph_boost_decay=graph_boost_decay,
+        routing_boost=routing_prior_boost,
+        routing_boost_by_query=routing_chunk_ids_by_query,
+        routing_boost_pool_multiplier=routing_prior_pool_multiplier,
+        routing_chapters_by_query=routing_result.final_chapters_by_query
+        if routing_result
+        else None,
+        chunk_to_chapter=chunk_to_chapter,
     )
     eval_duration_ms = int((time.time() - eval_start) * 1000)
     print(f"✅ Scoring complete: duration_ms={eval_duration_ms}")
@@ -958,14 +1004,21 @@ def run_embedding_benchmark(
             chunk_document_ids=chunk_document_ids,
             chunk_book_ids=chunk_book_ids,
             chunk_kind_by_id=chunk_kind_by_id,
-            allowed_chunk_ids_by_query=allowed_chunk_ids_by_query,
+            allowed_chunk_ids_by_query=score_allowed_chunk_ids,
             graph_boost=graph_boost,
             graph_boost_depth=graph_boost_depth,
             graph_boost_top_k=graph_boost_top_k,
-            graph_boost_source=graph_boost_source,
+            graph_boost_source=graph_boost_source_value,
             graph_boost_seed_top_n=graph_boost_seed_top_n,
             graph_boost_same_kind_only=graph_boost_same_kind_only,
             graph_boost_decay=graph_boost_decay,
+            routing_boost=routing_prior_boost,
+            routing_boost_by_query=routing_chunk_ids_by_query,
+            routing_boost_pool_multiplier=routing_prior_pool_multiplier,
+            routing_chapters_by_query=routing_result.final_chapters_by_query
+            if routing_result
+            else None,
+            chunk_to_chapter=chunk_to_chapter,
         )
         expanded_eval_duration_ms = int((time.time() - expanded_eval_start) * 1000)
 
@@ -1086,7 +1139,11 @@ def run_embedding_benchmark(
             "chunk_count": len(chunks),
             "query_count": scores.get("query_count", 0),
             "evaluated_queries": scores.get("evaluated_queries", 0),
-            "coverage": scores.get("coverage", 0.0),
+            # NOTE: "coverage" is deprecated terminology; prefer "evaluability"
+            # Evaluability = fraction of queries where expected chunk exists in corpus
+            # hit@k = fraction of evaluated queries where gold appears in top-k
+            "evaluability": scores.get("evaluability", scores.get("coverage", 0.0)),
+            "coverage": scores.get("coverage", 0.0),  # Backward compatibility
             "mrr": scores.get("mrr", 0.0),
             "hit_rates": scores.get("hit_rates", {}),
             "answer_similarity": scores.get("answer_similarity"),
@@ -1111,10 +1168,17 @@ def run_embedding_benchmark(
                 "value": graph_boost,
                 "depth": graph_boost_depth,
                 "top_k": graph_boost_top_k,
-                "source": graph_boost_source,
+                "source": graph_boost_source_value,
                 "seed_top_n": graph_boost_seed_top_n,
                 "same_kind_only": graph_boost_same_kind_only,
                 "decay": graph_boost_decay,
+            },
+            "routing_prior": {
+                "enabled": routing_prior_enabled,
+                "prior_boost": routing_prior_boost,
+                "prior_pool_multiplier": routing_prior_pool_multiplier,
+                "seeded_boost": routing_seeded_boost,
+                "seeded_boost_source": graph_boost_source_value if routing_seeded_boost else None,
             },
             "chapter_routing": {
                 "enabled": bool(chapter_routing_top_n and chapter_routing_top_n > 0),

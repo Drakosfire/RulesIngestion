@@ -77,7 +77,43 @@ def extract_chunks(outputs: Dict[str, Any], chunk_source: str) -> List[Dict[str,
                 "document_id": chunk.get("document_id"),
             }
         )
+    _backfill_section_paths(normalized)
     return normalized
+
+
+def _parse_chunk_position(chunk_id: Optional[str]) -> Tuple[int, int]:
+    if not chunk_id:
+        return (1_000_000_000, 1_000_000_000)
+    match = re.search(r"/page/(\d+)/[^/]+/(\d+)$", chunk_id)
+    if not match:
+        return (1_000_000_000, 1_000_000_000)
+    return (int(match.group(1)), int(match.group(2)))
+
+
+def _backfill_section_paths(chunks: List[Dict[str, Any]]) -> None:
+    by_document: Dict[str, List[int]] = {}
+    for idx, chunk in enumerate(chunks):
+        document_id = chunk.get("document_id") or "unknown"
+        by_document.setdefault(document_id, []).append(idx)
+
+    for document_id, indices in by_document.items():
+        indices.sort(key=lambda i: _parse_chunk_position(chunks[i].get("id")))
+        has_any_section = any(
+            (chunks[i].get("section_path") or []) for i in indices
+        )
+        last_section_path: Optional[List[str]] = None
+        for idx in indices:
+            chunk = chunks[idx]
+            section_path = chunk.get("section_path") or []
+            if section_path:
+                last_section_path = section_path
+                continue
+            if last_section_path:
+                chunk["section_path"] = last_section_path
+            elif not has_any_section:
+                chunk["section_path"] = [document_id]
+            else:
+                chunk["section_path"] = [document_id]
 
 
 def extract_queries(outputs: Dict[str, Any]) -> List[Dict[str, Any]]:

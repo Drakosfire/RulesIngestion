@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
@@ -18,27 +19,80 @@ def _code_block(lines: List[str], payload: Any, language: str = "json") -> None:
     lines.append("```")
 
 
-def write_report(report: Dict[str, Any], report_dir: str, report_basename: str) -> Dict[str, str]:
+def _json_default(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def _build_summary_payload(report: Dict[str, Any]) -> Dict[str, Any]:
+    summary = report.get("summary", {})
+    traversal = report.get("traversal_eval") or summary.get("traversal_eval") or {}
+    return {
+        "run_id": summary.get("run_id"),
+        "model_id": summary.get("model_id"),
+        "ruleset_id": summary.get("ruleset_id"),
+        "document_id": summary.get("document_id"),
+        "document_ids": summary.get("document_ids"),
+        "chunk_source": summary.get("chunk_source"),
+        "chunk_count": summary.get("chunk_count"),
+        "query_count": summary.get("query_count"),
+        "evaluated_queries": summary.get("evaluated_queries"),
+        "baseline_mode": summary.get("baseline_mode"),
+        # NOTE: "coverage" is deprecated; prefer "evaluability"
+        "evaluability": summary.get("evaluability", summary.get("coverage")),
+        "coverage": summary.get("coverage"),  # Backward compatibility
+        "mrr": summary.get("mrr"),
+        "hit_rates": summary.get("hit_rates"),
+        "routing_scores": summary.get("routing_scores"),
+        "coverage_expanded": summary.get("coverage_expanded"),
+        "mrr_expanded": summary.get("mrr_expanded"),
+        "hit_rates_expanded": summary.get("hit_rates_expanded"),
+        "cross_book_contamination": summary.get("cross_book_contamination"),
+        "graph_boost": summary.get("graph_boost"),
+        "chapter_routing": summary.get("chapter_routing"),
+        "routing_prior": summary.get("routing_prior"),
+        "traversal_eval": {
+            "enabled": traversal.get("enabled"),
+            "baseline": traversal.get("baseline"),
+            "delta": traversal.get("delta"),
+        },
+        "timings_ms": summary.get("timings_ms"),
+    }
+
+
+def write_report(
+    report: Dict[str, Any],
+    report_dir: str,
+    report_basename: str,
+    summary_only: bool = False,
+) -> Dict[str, str]:
     os.makedirs(report_dir, exist_ok=True)
     json_path = os.path.join(report_dir, f"{report_basename}.json")
     md_path = os.path.join(report_dir, f"{report_basename}.md")
+    summary_path = os.path.join(report_dir, f"{report_basename}.summary.json")
 
     with open(json_path, "w", encoding="utf-8") as handle:
-        json.dump(report, handle, indent=2)
+        json.dump(report, handle, indent=2, default=_json_default)
+    with open(summary_path, "w", encoding="utf-8") as handle:
+        json.dump(_build_summary_payload(report), handle, indent=2, default=_json_default)
 
     lines = []
     summary = report["summary"]
-    lines.append(f"# RulesLawyer Evaluation Report: {summary['model_id']}")
+    lines.append(
+        f"# RulesLawyer Evaluation Report: {summary['model_id']} (run {summary['run_id']})"
+    )
     lines.append("")
     lines.append("## Summary")
     lines.append("")
+    document_id = summary.get("document_id")
+    document_ids = summary.get("document_ids") or []
+    document_display = document_id or (", ".join(document_ids) if document_ids else None)
     lines.append("### Run")
     _table(
         lines,
         [
-            ("Run ID", f"`{summary['run_id']}`"),
             ("Ruleset ID", f"`{summary.get('ruleset_id')}`"),
-            ("Document ID", f"`{summary.get('document_id')}`"),
             ("Chunk source", f"`{summary['chunk_source']}`"),
             ("Chunk count", f"`{summary['chunk_count']}`"),
             ("Query count", f"`{summary['query_count']}`"),
@@ -53,12 +107,29 @@ def write_report(report: Dict[str, Any], report_dir: str, report_basename: str) 
         lines.append("")
         lines.append(f"Baseline report: `{summary.get('baseline_report')}`")
     lines.append("")
-    lines.append("### Strict Gold Metrics")
+    baseline_label = "Traversal Baseline Metrics"
+    if summary.get("baseline_mode") != "traversal":
+        baseline_label = "Strict Gold Metrics"
+    lines.append(f"### {baseline_label}")
+    evaluability_value = summary.get('evaluability', summary.get('coverage', 0.0))
     _table(
         lines,
-        [("Coverage", f"`{summary['coverage']:.4f}`"), ("MRR", f"`{summary['mrr']:.4f}`")]
+        [("Evaluability", f"`{evaluability_value:.4f}`"), ("MRR", f"`{summary['mrr']:.4f}`")]
         + [(key, f"`{value:.4f}`") for key, value in summary["hit_rates"].items()],
     )
+    routing_scores = summary.get("routing_scores")
+    if routing_scores:
+        lines.append("")
+        lines.append("### Chapter Routing Metrics")
+        routing_hit_rates = routing_scores.get("hit_rates") or {}
+        _table(
+            lines,
+            [
+                ("Coverage", f"`{routing_scores.get('coverage', 0.0):.4f}`"),
+                ("MRR", f"`{routing_scores.get('mrr', 0.0):.4f}`"),
+            ]
+            + [(key, f"`{value:.4f}`") for key, value in routing_hit_rates.items()],
+        )
     answer_similarity = summary.get("answer_similarity") or {}
     if answer_similarity:
         lines.append("")
@@ -89,19 +160,45 @@ def write_report(report: Dict[str, Any], report_dir: str, report_basename: str) 
     if chapter_routing.get("enabled"):
         lines.append("")
         lines.append("### Chapter Routing")
+        rerank_enabled = chapter_routing.get("rerank_enabled")
+        rerank_source = chapter_routing.get("rerank_source")
+        rerank_change_rate = chapter_routing.get("rerank_change_rate")
+        rerank_changed = chapter_routing.get("rerank_changed_queries")
+        rerank_total = chapter_routing.get("rerank_total_queries")
+        rerank_summary = "none"
+        if rerank_enabled:
+            if rerank_change_rate is not None and rerank_total:
+                rerank_summary = (
+                    f"enabled (source={rerank_source}, "
+                    f"changed={rerank_changed}/{rerank_total}, "
+                    f"change_rate={rerank_change_rate:.4f})"
+                )
+            else:
+                rerank_summary = f"enabled (source={rerank_source})"
         lines.append(
-            f"- top_n: `{chapter_routing.get('top_n')}` (source={chapter_routing.get('source')}, "
+            f"- top_n: `{chapter_routing.get('top_n')}` "
+            f"(source={chapter_routing.get('embedding_source')}, "
             f"chapters={chapter_routing.get('chapter_count')}, "
             f"avg_allowed_chunks={chapter_routing.get('avg_allowed_chunks')}, "
             f"expected_recall={chapter_routing.get('expected_recall')}, "
-            f"rerank={chapter_routing.get('rerank')})"
+            f"rerank={rerank_summary})"
+        )
+    routing_prior = summary.get("routing_prior") or {}
+    if routing_prior.get("enabled"):
+        lines.append("")
+        lines.append("### Routing Prior")
+        lines.append(
+            f"- boost: `{routing_prior.get('prior_boost')}` "
+            f"(pool_multiplier={routing_prior.get('prior_pool_multiplier')}, "
+            f"seeded_boost={routing_prior.get('seeded_boost')}, "
+            f"seeded_boost_source={routing_prior.get('seeded_boost_source')})"
         )
     lines.append("")
 
     traversal = report.get("traversal_eval") or summary.get("traversal_eval")
     if traversal and traversal.get("enabled") and traversal.get("baseline") and traversal.get("delta"):
-        lines.append("### Traversal Eval (Baseline vs Chapter-Restricted)")
-        lines.append("#### Baseline")
+        lines.append("### Routing Impact (Chapter Routing vs Traversal Baseline)")
+        lines.append("#### Traversal Baseline")
         _table(
             lines,
             [("Coverage", f"`{traversal['baseline']['coverage']:.4f}`"), ("MRR", f"`{traversal['baseline']['mrr']:.4f}`")]
@@ -111,7 +208,7 @@ def write_report(report: Dict[str, Any], report_dir: str, report_basename: str) 
             ],
         )
         lines.append("")
-        lines.append("#### Delta (Routing - Baseline)")
+        lines.append("#### Delta (Routing - Traversal Baseline)")
         _table(
             lines,
             [("Coverage Δ", f"`{traversal['delta']['coverage']:.4f}`"), ("MRR Δ", f"`{traversal['delta']['mrr']:.4f}`")]
@@ -161,6 +258,70 @@ def write_report(report: Dict[str, Any], report_dir: str, report_basename: str) 
                 lines.append(f"  - {key}: `{value}` (ok={ok})")
             lines.append("- Improvements (baseline miss → routing hit):")
             for key, value in rank_mono["improvements"].items():
+                lines.append(f"  - {key}: `{value}`")
+            lines.append("")
+
+    toc_traversal = summary.get("toc_traversal_eval") or {}
+    if toc_traversal.get("enabled") and toc_traversal.get("baseline") and toc_traversal.get("compare"):
+        lines.append("### TOC Traversal Impact (Scope Gating)")
+        lines.append("")
+        _table(
+            lines,
+            [
+                ("Scope depth", f"`{toc_traversal.get('scope_depth')}`"),
+                ("Avg candidate fraction", f"`{toc_traversal.get('avg_candidate_fraction')}`"),
+                ("Missing scope count", f"`{toc_traversal.get('missing_scope_count')}`"),
+            ],
+        )
+        lines.append("")
+        lines.append("#### Traversal Baseline")
+        _table(
+            lines,
+            [
+                ("Coverage", f"`{toc_traversal['baseline']['coverage']:.4f}`"),
+                ("MRR", f"`{toc_traversal['baseline']['mrr']:.4f}`"),
+            ]
+            + [
+                (f"{key}", f"`{value:.4f}`")
+                for key, value in toc_traversal["baseline"]["hit_rates"].items()
+            ],
+        )
+        lines.append("")
+        lines.append("#### TOC-Gated (Compare)")
+        _table(
+            lines,
+            [
+                ("Coverage", f"`{toc_traversal['compare']['coverage']:.4f}`"),
+                ("MRR", f"`{toc_traversal['compare']['mrr']:.4f}`"),
+            ]
+            + [
+                (f"{key}", f"`{value:.4f}`")
+                for key, value in toc_traversal["compare"]["hit_rates"].items()
+            ],
+        )
+        lines.append("")
+        lines.append("#### Delta (TOC-Gated - Baseline)")
+        _table(
+            lines,
+            [
+                ("Coverage Δ", f"`{toc_traversal['delta']['coverage']:.4f}`"),
+                ("MRR Δ", f"`{toc_traversal['delta']['mrr']:.4f}`"),
+            ]
+            + [
+                (f"{key} Δ", f"`{value:.4f}`")
+                for key, value in toc_traversal["delta"]["hit_rates"].items()
+            ],
+        )
+        lines.append("")
+        toc_rank_mono = toc_traversal.get("rank_monotonicity")
+        if toc_rank_mono:
+            lines.append("#### Rank Monotonicity (TOC Gating)")
+            lines.append("- Regressions (baseline hit → gated miss):")
+            for key, value in toc_rank_mono["regressions"].items():
+                ok = toc_rank_mono["monotonic_ok"].get(key)
+                lines.append(f"  - {key}: `{value}` (ok={ok})")
+            lines.append("- Improvements (baseline miss → gated hit):")
+            for key, value in toc_rank_mono["improvements"].items():
                 lines.append(f"  - {key}: `{value}`")
             lines.append("")
 
@@ -231,68 +392,155 @@ def write_report(report: Dict[str, Any], report_dir: str, report_basename: str) 
             ],
         )
     lines.append("")
+    if document_display:
+        lines.append("## Document IDs")
+        lines.append(f"`{document_display}`")
+        lines.append("")
 
-    lines.append("## Query Details")
-    for detail in report["queries"]:
-        lines.append(f"### Query {detail['query_index']}")
-        lines.append("")
-        lines.append(f"**Text:** {detail['query_text']}")
-        lines.append("")
-        lines.append("- Expected found: `{}`".format(detail["expected_found"]))
-        lines.append("- Expected rank: `{}`".format(detail["expected_rank"]))
-        answer_keys = [key for key in detail.keys() if key.startswith("answer_similarity@")]
-        if answer_keys:
-            for key in sorted(answer_keys):
-                value = detail.get(key)
-                lines.append(f"- {key}: `{value:.4f}`" if value is not None else f"- {key}: `n/a`")
-        lines.append("")
-        lines.append("#### Expected chunk IDs")
-        _code_block(lines, detail["expected_chunk_ids"])
-        if detail.get("chapter_routing_top_chapters"):
-            lines.append("- Routed chapters:")
-            for routed in detail["chapter_routing_top_chapters"]:
-                score = routed.get("score")
-                summary_score = routed.get("summary_score")
-                rerank_score = routed.get("rerank_score")
-                if summary_score is not None and rerank_score is not None:
+    lines.append("## Metrics Legend (Why Each Metric Matters)")
+    lines.append(
+        "- Gold: the expected source chunk(s) for a query. Metrics that refer to gold "
+        "measure whether retrieval surfaced the authoritative evidence."
+    )
+    lines.append(
+        "- Evaluability (formerly 'coverage'): fraction of queries that can be evaluated "
+        "(expected chunk exists in corpus and passes filters). High evaluability with low hit@k "
+        "indicates valid queries but failed retrieval."
+    )
+    lines.append(
+        "- hit@k: fraction of evaluated queries whose gold chunk appears in top-k. "
+        "This is the primary signal that retrieval is *traceable* to a source chunk."
+    )
+    lines.append(
+        "- MRR: mean reciprocal rank of the first gold hit; higher means the correct chunk "
+        "is found earlier, which reduces noise in the LLM context window."
+    )
+    lines.append(
+        "- hit@k: share of queries where gold appears within top-k. This reflects how often "
+        "the LLM can be fed a correct supporting chunk without additional reasoning."
+    )
+    lines.append(
+        "- Candidate fraction (TOC traversal): fraction of chunks eligible after structural gating. "
+        "Lower is better if coverage holds; it proves structure constrains retrieval safely."
+    )
+    lines.append(
+        "- Missing scope count: queries whose expected chunk has no TOC scope. "
+        "High values indicate broken section paths and weaken determinism."
+    )
+    lines.append(
+        "- Routing Δ: chapter routing metric minus baseline; negative means routing loses reachable gold. "
+        "We expect Δ to be >= 0 when routing is healthy."
+    )
+    lines.append(
+        "- Contamination@k: cross-book hits in top-k (lower is better). "
+        "Non-zero values break traceability and show leakage across books."
+    )
+    lines.append(
+        "- Reachability: fraction of gold preserved through routing stages. "
+        "This ensures structural gates do not discard correct evidence."
+    )
+    lines.append("")
+    lines.append("## Vocabulary (Traceable Retrieval)")
+    lines.append(
+        "- Structural eligibility: the set of chunks allowed by deterministic structure "
+        "(TOC, sections, edges). This defines what is *allowed* to be retrieved."
+    )
+    lines.append(
+        "- Ranking: ordering chunks *within* the eligible set using hybrid signals "
+        "(dense embeddings + sparse metadata). This decides what is *most relevant*."
+    )
+    lines.append(
+        "- Gold: the expected source chunk(s) for a query, derived from ground-truth "
+        "annotations or deterministic routing targets."
+    )
+    lines.append(
+        "- Strict gold: only the exact expected chunk IDs are correct. "
+        "This is the strongest traceability target."
+    )
+    lines.append(
+        "- Expanded gold: strict gold plus graph-expanded equivalents. "
+        "Used to validate that deterministic edges preserve correctness."
+    )
+    lines.append(
+        "- Baseline: retrieval without routing constraints. "
+        "Used as the control for structural gating experiments."
+    )
+    lines.append(
+        "- Chapter routing: limit candidate chunks to top-n chapters. "
+        "A soft structural gate that should preserve reachability."
+    )
+    lines.append(
+        "- TOC traversal: section-based structural gating. "
+        "A strict gate used to prove deterministic scope narrowing."
+    )
+    lines.append(
+        "- Graph boost: score bonus for graph neighbors. "
+        "A soft signal layered *after* eligibility to improve ranking without violating scope."
+    )
+    lines.append("")
+
+    if not summary_only:
+        lines.append("## Query Details")
+        for detail in report["queries"]:
+            lines.append(f"### Query {detail['query_index']}")
+            lines.append("")
+            lines.append(f"**Text:** {detail['query_text']}")
+            lines.append("")
+            lines.append("- Expected found: `{}`".format(detail["expected_found"]))
+            lines.append("- Expected rank: `{}`".format(detail["expected_rank"]))
+            answer_keys = [key for key in detail.keys() if key.startswith("answer_similarity@")]
+            if answer_keys:
+                for key in sorted(answer_keys):
+                    value = detail.get(key)
+                    lines.append(f"- {key}: `{value:.4f}`" if value is not None else f"- {key}: `n/a`")
+            lines.append("")
+            lines.append("#### Expected chunk IDs")
+            _code_block(lines, detail["expected_chunk_ids"])
+            if detail.get("chapter_routing_top_chapters"):
+                lines.append("- Routed chapters:")
+                for routed in detail["chapter_routing_top_chapters"]:
+                    score = routed.get("score")
+                    summary_score = routed.get("summary_score")
+                    rerank_score = routed.get("rerank_score")
+                    if summary_score is not None and rerank_score is not None:
+                        lines.append(
+                            f"  - {routed['chapter_id']}: `{score:.4f}` "
+                            f"(summary={summary_score:.4f}, rerank={rerank_score:.4f})"
+                        )
+                    else:
+                        lines.append(f"  - {routed['chapter_id']}: `{score:.4f}`")
+            if detail.get("graph_boost_applied") is not None:
+                lines.append(f"- Graph boost applied: `{detail.get('graph_boost_applied')}`")
+                lines.append(f"- Graph boosted count: `{detail.get('graph_boosted_count')}`")
+                lines.append(f"- Graph boost seed source: `{detail.get('graph_boost_seed_source')}`")
+                lines.append("")
+                lines.append("#### Graph boost seed ids")
+                _code_block(lines, detail.get("graph_boost_seed_ids"))
+            if detail.get("expanded_expected_chunk_ids") is not None:
+                lines.append("- Expanded expected found: `{}`".format(detail["expanded_expected_found"]))
+                lines.append("- Expanded expected rank: `{}`".format(detail["expanded_expected_rank"]))
+                lines.append("")
+                lines.append("#### Expanded expected chunk IDs")
+                _code_block(lines, detail["expanded_expected_chunk_ids"])
+                added_chunks = detail.get("expanded_added_chunks") or []
+                if added_chunks:
+                    lines.append("- Expanded additions:")
+                    for added in added_chunks:
+                        reasons = ", ".join(added.get("reasons", [])) or "n/a"
+                        lines.append(
+                            f"  - `{added['chunk_id']}` (reasons: {reasons})"
+                        )
+            if detail["top_results"]:
+                lines.append("")
+                lines.append("| Rank | Chunk ID | Score | Preview |")
+                lines.append("| --- | --- | --- | --- |")
+                for result in detail["top_results"]:
+                    preview = " ".join((result.get("preview") or "").split())
+                    preview = preview.replace("|", "\\|")
                     lines.append(
-                        f"  - {routed['chapter_id']}: `{score:.4f}` "
-                        f"(summary={summary_score:.4f}, rerank={rerank_score:.4f})"
+                        f"| {result['rank']} | `{result['chunk_id']}` | {result['score']:.6f} | {preview} |"
                     )
-                else:
-                    lines.append(f"  - {routed['chapter_id']}: `{score:.4f}`")
-        if detail.get("graph_boost_applied") is not None:
-            lines.append(f"- Graph boost applied: `{detail.get('graph_boost_applied')}`")
-            lines.append(f"- Graph boosted count: `{detail.get('graph_boosted_count')}`")
-            lines.append(f"- Graph boost seed source: `{detail.get('graph_boost_seed_source')}`")
             lines.append("")
-            lines.append("#### Graph boost seed ids")
-            _code_block(lines, detail.get("graph_boost_seed_ids"))
-        if detail.get("expanded_expected_chunk_ids") is not None:
-            lines.append("- Expanded expected found: `{}`".format(detail["expanded_expected_found"]))
-            lines.append("- Expanded expected rank: `{}`".format(detail["expanded_expected_rank"]))
-            lines.append("")
-            lines.append("#### Expanded expected chunk IDs")
-            _code_block(lines, detail["expanded_expected_chunk_ids"])
-            added_chunks = detail.get("expanded_added_chunks") or []
-            if added_chunks:
-                lines.append("- Expanded additions:")
-                for added in added_chunks:
-                    reasons = ", ".join(added.get("reasons", [])) or "n/a"
-                    lines.append(
-                        f"  - `{added['chunk_id']}` (reasons: {reasons})"
-                    )
-        if detail["top_results"]:
-            lines.append("")
-            lines.append("| Rank | Chunk ID | Score | Preview |")
-            lines.append("| --- | --- | --- | --- |")
-            for result in detail["top_results"]:
-                preview = " ".join((result.get("preview") or "").split())
-                preview = preview.replace("|", "\\|")
-                lines.append(
-                    f"| {result['rank']} | `{result['chunk_id']}` | {result['score']:.6f} | {preview} |"
-                )
-        lines.append("")
 
     with open(md_path, "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines).strip() + "\n")

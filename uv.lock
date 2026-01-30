@@ -1219,6 +1219,7 @@ dependencies = [
     { name = "openai" },
     { name = "pymongo" },
     { name = "pytest" },
+    { name = "sentence-transformers" },
     { name = "transformers" },
     { name = "uvicorn" },
 ]
@@ -1230,6 +1231,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.109.1" },
     { name = "pymongo", specifier = ">=4.16.0" },
     { name = "pytest", specifier = ">=9.0.2" },
+    { name = "sentence-transformers", specifier = ">=5.2.1" },
     { name = "transformers", specifier = ">=4.57.6" },
     { name = "uvicorn", specifier = ">=0.40.0" },
 ]
@@ -1343,6 +1345,26 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ef/5e/e565bd73991d42023eb82bb99e51c5b3d9e2c588ca9d4b3e2cc1d3ca62a6/scipy-1.17.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:f9eb55bb97d00f8b7ab95cb64f873eb0bf54d9446264d9f3609130381233483f", size = 37457743, upload-time = "2026-01-10T21:30:34.819Z" },
     { url = "https://files.pythonhosted.org/packages/58/a8/a66a75c3d8f1fb2b83f66007d6455a06a6f6cf5618c3dc35bc9b69dd096e/scipy-1.17.0-cp314-cp314t-win_amd64.whl", hash = "sha256:1ff269abf702f6c7e67a4b7aad981d42871a11b9dd83c58d2d2ea624efbd1088", size = 37098574, upload-time = "2026-01-10T21:30:40.782Z" },
     { url = "https://files.pythonhosted.org/packages/56/a5/df8f46ef7da168f1bc52cd86e09a9de5c6f19cc1da04454d51b7d4f43408/scipy-1.17.0-cp314-cp314t-win_arm64.whl", hash = "sha256:031121914e295d9791319a1875444d55079885bbae5bdc9c5e0f2ee5f09d34ff", size = 25246266, upload-time = "2026-01-10T21:30:45.923Z" },
+]
+
+[[package]]
+name = "sentence-transformers"
+version = "5.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "numpy" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "tqdm" },
+    { name = "transformers" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/63/4d/64abf2856ffb704bcaea89a781a081187cc602c1fc7cd9ef1fc8ebf567be/sentence_transformers-5.2.1.tar.gz", hash = "sha256:9c676411becbf2a0e7515501788a7f84b99ca2dcc124ce392639bcdda4a256ff", size = 381393, upload-time = "2026-01-26T14:48:05.265Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/2c/a75cc1e2b48914fe709a6aec3799ceeb0658ec87058d2e3f950d54cc1d06/sentence_transformers-5.2.1-py3-none-any.whl", hash = "sha256:388483e174223958ae71b6888c49a6cc1480306a12655a690b605c7a176162d0", size = 493822, upload-time = "2026-01-26T14:48:03.881Z" },
 ]
 
 [[package]]

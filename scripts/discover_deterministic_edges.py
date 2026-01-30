@@ -20,8 +20,10 @@ from scripts.discover_deterministic_edges_candidates import (
 from scripts.discover_deterministic_edges_constants import (
     DEFAULT_NEAR_DUPLICATE_MAX,
     DEFAULT_NEAR_DUPLICATE_RATE_MAX,
+    DEFAULT_SUSPECT_TOKEN_MIN_TOKENS,
     DEFAULT_SUSPECT_TOKEN_RATE_MAX,
     DEFAULT_UNRESOLVED_RATE_MAX,
+    STRICT_RELATIONS,
 )
 from scripts.discover_deterministic_edges_gates import _run_ocr_spelling_gates
 from scripts.discover_deterministic_edges_indexing import (
@@ -65,6 +67,16 @@ def main() -> None:
         help="Write sidecar candidate files next to enriched outputs",
     )
     parser.add_argument(
+        "--write-gate-summary",
+        action="store_true",
+        help="Write OCR/spelling gate summaries next to enriched outputs",
+    )
+    parser.add_argument(
+        "--write-gate-failures-combined",
+        action="store_true",
+        help="Write combined gate failure report at end of run",
+    )
+    parser.add_argument(
         "--skip-gates",
         action="store_true",
         help="Skip OCR/spelling gate checks before edge discovery",
@@ -72,7 +84,12 @@ def main() -> None:
     parser.add_argument(
         "--allow-gate-fail",
         action="store_true",
-        help="Continue even if OCR/spelling gates fail",
+        help="Deprecated: gates are soft by default; use --hard-gates to abort",
+    )
+    parser.add_argument(
+        "--hard-gates",
+        action="store_true",
+        help="Abort if OCR/spelling gates fail (default: soft gates)",
     )
     parser.add_argument(
         "--unresolved-rate-max",
@@ -87,6 +104,12 @@ def main() -> None:
         help="Max suspect token rate before failing gate",
     )
     parser.add_argument(
+        "--suspect-token-min-tokens",
+        type=int,
+        default=DEFAULT_SUSPECT_TOKEN_MIN_TOKENS,
+        help="Min tokens required before suspect-token gate applies",
+    )
+    parser.add_argument(
         "--near-duplicate-max",
         type=int,
         default=DEFAULT_NEAR_DUPLICATE_MAX,
@@ -99,6 +122,8 @@ def main() -> None:
         help="Max near-duplicate title rate before failing gate",
     )
     args = parser.parse_args()
+    write_gate_summary = args.write_gate_summary or args.write
+    write_gate_failures_combined = args.write_gate_failures_combined or args.write
 
     enriched_paths = list(_iter_enriched_paths(args.paths))
     if not enriched_paths:
@@ -107,9 +132,12 @@ def main() -> None:
 
     global_candidates: List[dict] = []
     global_keyword_counts: Counter = Counter()
+    failed_gate_reports: List[dict] = []
+    combined_run_dir: Path | None = None
 
     for path in sorted(enriched_paths):
         doc_id, chunks = _load_enriched(path)
+        combined_run_dir = combined_run_dir or path.parent
         page_offset = _parse_doc_page_offset(doc_id)
         indices = _build_indices(chunks, doc_id, page_offset)
         page_text_index = _build_page_text_index(chunks, page_offset)
@@ -117,6 +145,7 @@ def main() -> None:
         candidates, keyword_counts = _extract_candidates(
             chunks, doc_id, indices, page_text_index, section_header_index
         )
+        gate_summary = None
         if not args.skip_gates:
             gate_summary = _run_ocr_spelling_gates(
                 candidates=candidates,
@@ -124,11 +153,32 @@ def main() -> None:
                 chunks=chunks,
                 unresolved_rate_max=args.unresolved_rate_max,
                 suspect_token_rate_max=args.suspect_token_rate_max,
+                suspect_token_min_tokens=args.suspect_token_min_tokens,
                 near_duplicate_max=args.near_duplicate_max,
                 near_duplicate_rate_max=args.near_duplicate_rate_max,
-                allow_gate_fail=args.allow_gate_fail,
+                hard_fail=args.hard_gates,
             )
             print(f"  gates: {gate_summary}")
+            if gate_summary.get("prune_unresolved_strict"):
+                before = len(candidates)
+                candidates = [
+                    c
+                    for c in candidates
+                    if not (
+                        c.get("relation") in STRICT_RELATIONS
+                        and int(c.get("resolution_count", 0)) == 0
+                    )
+                ]
+                gate_summary["unresolved_pruned"] = before - len(candidates)
+            if write_gate_summary:
+                gate_path = path.with_suffix(".edge_gates.json")
+                gate_payload = {
+                    "document": doc_id,
+                    "gates": gate_summary,
+                }
+                with gate_path.open("w", encoding="utf-8") as handle:
+                    json.dump(gate_payload, handle, indent=2)
+                print(f"  wrote: {gate_path}")
         summary = _summarize_candidates(candidates)
         _print_summary(doc_id, summary, keyword_counts)
 
@@ -151,6 +201,17 @@ def main() -> None:
             with debug_path.open("w", encoding="utf-8") as handle:
                 json.dump(debug_payload, handle, indent=2)
             print(f"  wrote: {debug_path}")
+            if gate_summary and gate_summary.get("gate_failures"):
+                failed_gate_reports.append(
+                    {
+                        "document": doc_id,
+                        "gate_summary": gate_summary,
+                        "candidate_path": str(output_path),
+                        "candidates": candidates,
+                        "summary": summary,
+                        "cue_keyword_counts": dict(keyword_counts),
+                    }
+                )
 
     global_summary = _summarize_candidates(global_candidates)
     print("\nAll documents")
@@ -169,6 +230,16 @@ def main() -> None:
         print("  cue_keywords:")
         for keyword, count in global_keyword_counts.most_common():
             print(f"    - {keyword.strip()}: {count}")
+
+    if write_gate_failures_combined and failed_gate_reports and combined_run_dir:
+        combined_payload = {
+            "run_dir": str(combined_run_dir),
+            "failed_documents": failed_gate_reports,
+        }
+        combined_path = combined_run_dir / "gate_failures_combined.json"
+        with combined_path.open("w", encoding="utf-8") as handle:
+            json.dump(combined_payload, handle, indent=2)
+        print(f"\n💾 Wrote combined gate failure report: {combined_path}")
 
 
 if __name__ == "__main__":

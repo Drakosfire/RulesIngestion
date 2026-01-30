@@ -157,8 +157,9 @@ def test_config_generation_failure_persists_diagnostics() -> None:
     profile = RulesetProfile(
         ruleset_id="sf2e",
         doc_signature="sig",
-        heading_hierarchy=["A"],
-        block_type_distribution={"Text": 1},
+        heading_hierarchy=["A", "B", "C"],
+        block_type_distribution={"SectionHeader": 3, "Text": 1},
+        samples=["Sample one", "Sample two"],
     )
     saved = []
 
@@ -186,4 +187,44 @@ def test_config_generation_failure_persists_diagnostics() -> None:
     assert diagnostics is not None
     assert diagnostics.validation_errors == ["invalid", "invalid"]
     assert diagnostics.prompt_payload == {"prompt": "test"}
+    assert saved == [diagnostics]
+
+
+def test_config_generation_quality_gate_saves_diagnostics() -> None:
+    profile = RulesetProfile(
+        ruleset_id="sf2e",
+        doc_signature="sig",
+        heading_hierarchy=["A"],
+        noise_headings=["Glossary", "Index"],
+        block_type_distribution={"Text": 1},
+        samples=["Only one sample"],
+    )
+    saved = []
+    generator_calls = []
+
+    def generator(_profile, _attempt):
+        generator_calls.append("called")
+        return {}
+
+    def validator(_payload):
+        return RulesetConfiguration(**_payload)
+
+    def diagnostics_saver(diagnostics, _mongo_uri, _policy=None):
+        saved.append(diagnostics)
+        return "diagnostics-id"
+
+    config, diagnostics = run_config_generation_with_diagnostics(
+        profile=profile,
+        generator=generator,
+        validator=validator,
+        mongo_uri="mongodb://localhost",
+        prompt_payload={"prompt": "test"},
+        diagnostics_saver=diagnostics_saver,
+        max_retries=2,
+    )
+
+    assert config is None
+    assert diagnostics is not None
+    assert generator_calls == []
+    assert diagnostics.validation_errors
     assert saved == [diagnostics]

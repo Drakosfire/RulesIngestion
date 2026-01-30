@@ -1,5 +1,11 @@
 # Rule Ingestion Pipeline Overview
 
+> **DEPRECATED**: This document has been superseded by [INGESTION_PIPELINE.md](INGESTION_PIPELINE.md).
+> Please refer to the new documentation for current, comprehensive pipeline information.
+> This file is preserved for historical reference only.
+
+---
+
 ## Purpose
 
 This document describes the **rule ingestion pipeline** as a staged, tool-agnostic process.

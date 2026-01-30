@@ -241,7 +241,7 @@ def generate_ruleset_config(request: ConfigGenerateRequest) -> RulesetConfigResp
     marker_chunks_path = _resolve_marker_path(request.marker_output_id)
     raw_blocks = load_marker_chunks(marker_chunks_path)
 
-    llm_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    llm_model = os.getenv("OPENAI_MODEL", "gpt-5.2-codex")
     llm_api_key = os.getenv("OPENAI_API_KEY")
 
     drift_detector = (lambda *_args: True) if request.force_regenerate else None

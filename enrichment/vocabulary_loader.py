@@ -394,6 +394,7 @@ def extract_mechanic_mentions(
     compact_text = "".join(compact_chars)
     
     for mechanic in vocabulary:
+        found_direct = False
         start = 0
         while True:
             idx = text_lower.find(mechanic, start)
@@ -411,10 +412,11 @@ def extract_mechanic_mentions(
                     span_offsets=(idx, idx + len(mechanic)),
                     extraction_method="vocabulary",
                 ))
+                found_direct = True
             start = idx + 1
 
         compact_term = "".join(char for char in mechanic if char.isalnum())
-        if not compact_term or compact_term == mechanic:
+        if not compact_term or found_direct:
             continue
 
         search_start = 0

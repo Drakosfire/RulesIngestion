@@ -1,0 +1,149 @@
+{
+  "metadata": {
+    "batch_id": "001",
+    "created_by": "human",
+    "pdf_source": "PZO22003_PlayerCore.pdf",
+    "creation_method": "random_page_selection",
+    "created_at": "2026-01-27",
+    "notes": "First blind eval batch - 10 random pages"
+  },
+  "queries": [
+    {
+      "id": "blind_001_01",
+      "source_page": 49,
+      "question": "What abilities can cancel out Vent Gas when a Barathu uses it?",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-040-057::/page/9/Text/12",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-330-363::/page/6/Text/2",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-294-329::/page/7/Text/7"
+      ],
+      "expected_answer_summary": "Gust of Wind can blow away the gas cloud. Dispel Magic could counter it if it's magical. Alternative senses (scent, precise senses) can detect through concealment.",
+      "notes": "Tests: Vent Gas definition + wind spells + dispel mechanics + sense abilities"
+    },
+    {
+      "id": "blind_001_02",
+      "source_page": 60,
+      "question": "Suggest some complimentary feats for a Level 9 Lashunta Solarian",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-058-073::/page/1/Text/12",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-058-073::/page/3/SectionHeader/24",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-058-073::/page/3/SectionHeader/28",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-138-149::/page/2/Table/2",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-138-149::/page/3/Text/8"
+      ],
+      "expected_answer_summary": "Lashunta feats: Guarded Thoughts (mental protection), Psychic Mastery (enhanced telepathy). Solarian feats at level 9 from class table. Synergies with telepathy + melee combat style.",
+      "notes": "HARD: Requires cross-chapter retrieval. Tests if system can gather ancestry feats + class feats + understand synergies."
+    },
+    {
+      "id": "blind_001_03",
+      "source_page": 90,
+      "question": "Can I use Redirect Current to power up a console?",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-074-091::/page/16/Text/17",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-074-091::/page/16/Text/20",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-074-091::/page/16/Text/34"
+      ],
+      "expected_answer_summary": "Redirect Current is triggered by taking electricity damage and redirects it. To power devices, you'd need a different ability like the one that lets you 'use to power technological devices'.",
+      "notes": "Tests: Ability lookup + understanding of what Redirect Current actually does vs powering devices"
+    },
+    {
+      "id": "blind_001_04",
+      "source_page": 111,
+      "question": "Can I use Side Step to hit something that is inanimate or maybe a robot?",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-098-113::/page/13/SectionHeader/37",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-098-113::/page/12/Text/44",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-232-249::/page/4/Text/20",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-040-057::/page/5/Text/9"
+      ],
+      "expected_answer_summary": "Sidestep triggers when 'a creature misses you'. Robots are creatures (with tech trait) so YES. Inanimate objects are NOT creatures, so NO. The answer depends on whether it's a creature-robot or an inanimate hazard.",
+      "notes": "AMBIGUOUS: Tests creature vs object distinction. Good edge case."
+    },
+    {
+      "id": "blind_001_05",
+      "source_page": 396,
+      "question": "I don't really understand perception?",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/8/SectionHeader/21",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/8/Text/22",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/8/Text/23",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/9/Text/1",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/9/Text/3",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/9/Text/5"
+      ],
+      "expected_answer_summary": "Perception measures awareness of your environment. Check = d20 + Wis + proficiency + bonuses/penalties. Used for noticing things (Seek), social situations (Sense Motive), and initiative in encounters. Perception DC = 10 + total modifier.",
+      "notes": "VAGUE: Tests handling of broad conceptual questions. Should retrieve foundational rules."
+    },
+    {
+      "id": "blind_001_06",
+      "source_page": 157,
+      "question": "I need help deciding between Covering Fire or I'll be back as my 6th level feat I'm playing an Android",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-150-161::/page/7/SectionHeader/5",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-150-161::/page/7/Text/8",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-150-161::/page/7/Text/9",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-150-161::/page/7/SectionHeader/15",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-150-161::/page/7/Text/18",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-150-161::/page/7/Text/19",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-150-161::/page/7/Text/20"
+      ],
+      "expected_answer_summary": "Covering Fire: Ranged Strike (1 action) or Area/Auto-Fire (2 actions) to suppress target and give ally -2 penalty protection. Active team support. I'll Be Back: Free action 1/day when you wake from unconscious - Stand and draw weapon immediately. Recovery insurance. Choice depends on playstyle: team support (Covering Fire) vs personal resilience (I'll Be Back).",
+      "notes": "COMPARISON: Tests retrieval of two feats for decision-making. Android mentioned but not directly relevant to feat choice."
+    },
+    {
+      "id": "blind_001_07",
+      "source_page": 175,
+      "question": "Can a character with only the Solar Nimbus feat use Nimbus Surge when an enemy within reach leaves a square during a move action?",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-138-149::/page/3/SectionHeader/1",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-138-149::/page/3/Text/3",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-138-149::/page/3/Text/4",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-174-181::/page/4/SectionHeader/42",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-174-181::/page/4/Text/46"
+      ],
+      "expected_answer_summary": "Yes. Nimbus Surge triggers when a creature within reach 'leaves a square during a move action it's using'. Solar Nimbus feat grants Nimbus Surge reaction but without attunement benefits (no graviton/photon bonuses).",
+      "notes": "EDGE CASE: Tests feat interaction + trigger conditions. Solar Nimbus grants reaction but strips attunement bonuses."
+    },
+    {
+      "id": "blind_001_08",
+      "source_page": 45,
+      "question": "Do Androids with Revivification Protocol need to make recovery checks?",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-040-057::/page/5/SectionHeader/37",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-040-057::/page/5/Text/41",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-040-057::/page/5/Text/42",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/15/SectionHeader/3",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-388-405::/page/15/Text/4"
+      ],
+      "expected_answer_summary": "No. Revivification Protocol triggers 'when you are about to attempt a recovery check'. Instead of rolling, you auto-revive to 1 HP and lose dying/unconscious. The ability replaces the recovery check.",
+      "notes": "RULES INTERACTION: Tests understanding of triggered abilities that replace normal mechanics. Android-specific feat."
+    },
+    {
+      "id": "blind_001_09",
+      "source_page": 83,
+      "question": "Can a Shirren use Undying more than once per day?",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-074-091::/page/13/SectionHeader/46",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-074-091::/page/13/Text/50",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-074-091::/page/13/Text/51"
+      ],
+      "expected_answer_summary": "Need to check if Undying has a frequency limit. The feat text says 'You have died once before' suggesting narrative limitation, but no explicit 'once per day' frequency listed. May be unlimited use.",
+      "notes": "FREQUENCY CHECK: Tests if system retrieves feat to check for frequency limitations. Shirren-specific feat."
+    },
+    {
+      "id": "blind_001_10",
+      "source_page": 45,
+      "question": "What's the difference between Android Revivification Protocol and Shirren Undying?",
+      "gold_chunk_ids": [
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-040-057::/page/5/SectionHeader/37",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-040-057::/page/5/Text/41",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-040-057::/page/5/Text/42",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-074-091::/page/13/SectionHeader/46",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-074-091::/page/13/Text/50",
+        "sf2e-playercore-PZO22001-Starfinder-Player-Core-074-091::/page/13/Text/51"
+      ],
+      "expected_answer_summary": "Both restore to 1 HP and remove dying/unconscious. Revivification Protocol (Android, Feat 13): Triggers before recovery check, replaces it. Undying (Shirren, Feat 17): Triggers when you would otherwise perish. Both increase wounded. Key difference: trigger timing (before check vs at death) and level requirement (13 vs 17).",
+      "notes": "COMPARISON: Tests cross-ancestry feat comparison. Requires retrieving both feats and identifying similarities/differences."
+    }
+  ]
+}

@@ -28,6 +28,9 @@ class RelationType(Enum):
     TRIGGERS = "triggers"
     UNLESS = "unless"
     SAME_SUBJECT = "same_subject"
+    SAME_MECHANIC_FRAME = "same_mechanic_frame"
+    REQUIRES_LEVEL_SUPPORTS = "requires_level_supports"
+    REPLACES_EFFECT = "replaces_effect"
 
     # Structural relations
     IN_SAME_CLAUSE = "in_same_clause"
@@ -71,6 +74,9 @@ class FactRelation:
 MAX_ROLE_LINKS_PER_FACT = 2
 MAX_SUBJECT_LINKS_PER_FACT = 4
 MAX_CHUNK_LINKS_PER_FACT = 3
+MAX_FRAME_LINKS_PER_FACT = 3
+MAX_LEVEL_SUPPORT_LINKS_PER_FACT = 4
+MAX_REPLACE_LINKS_PER_FACT = 4
 STRUCTURAL_SECTION_HOPS = 2
 
 
@@ -251,6 +257,8 @@ def generate_fact_relations(
     resolved_config: Optional[Any] = None,
     allow_cross_section: bool = True,
     include_partial: bool = False,
+    fact_owner_by_id: Optional[Dict[str, str]] = None,
+    owner_name_by_id: Optional[Dict[str, str]] = None,
 ) -> List[FactRelation]:
     """Generate typed edges between facts using P0 + P1 relations."""
     if not facts:
@@ -267,6 +275,8 @@ def generate_fact_relations(
     by_role_scope: Dict[str, List[RuleFact]] = {}
     by_subject: Dict[str, List[RuleFact]] = {}
     by_chunk: Dict[str, List[RuleFact]] = {}
+    by_owner: Dict[str, List[RuleFact]] = {}
+    by_level_scope: Dict[str, List[RuleFact]] = {}
     subject_titles = _load_subject_titles(resolved_config)
 
     for fact in filtered:
@@ -274,10 +284,16 @@ def generate_fact_relations(
         for scope in _parse_scope(fact.scope):
             if scope.startswith("role:"):
                 by_role_scope.setdefault(scope, []).append(fact)
+            if scope.startswith("level:"):
+                by_level_scope.setdefault(scope, []).append(fact)
         subject_key = _normalize_subject(fact.subject, subject_titles)
         if subject_key and fact.object:
             by_subject.setdefault(subject_key, []).append(fact)
         by_chunk.setdefault(contexts[fact.fact_id].chunk_id, []).append(fact)
+        if fact_owner_by_id:
+            owner_id = fact_owner_by_id.get(fact.fact_id)
+            if owner_id:
+                by_owner.setdefault(owner_id, []).append(fact)
 
     relations: List[FactRelation] = []
     seen: Set[Tuple[str, str, RelationType]] = set()
@@ -553,6 +569,148 @@ def generate_fact_relations(
                 )
                 links += 1
                 if links >= MAX_CHUNK_LINKS_PER_FACT:
+                    break
+
+    # Same-owner links (semantic compression within a MechanicFrame)
+    for owner_id, owner_facts in by_owner.items():
+        ordered = sorted(owner_facts, key=lambda f: f.fact_id)
+        for idx, source in enumerate(ordered):
+            links = 0
+            for target in ordered[idx + 1 :]:
+                source_ctx = contexts[source.fact_id]
+                target_ctx = contexts[target.fact_id]
+                if source_ctx.clause_id == target_ctx.clause_id:
+                    continue
+                if not (
+                    source_ctx.chunk_id == target_ctx.chunk_id
+                    or (
+                        source_ctx.section_path == target_ctx.section_path
+                        and source_ctx.section_path
+                    )
+                ):
+                    continue
+                _add_relation(
+                    relations,
+                    seen,
+                    RelationType.SAME_MECHANIC_FRAME,
+                    source,
+                    target,
+                    source_ctx,
+                    target_ctx,
+                    inference_method="frame",
+                    confidence=0.65,
+                )
+                _add_relation(
+                    relations,
+                    seen,
+                    RelationType.SAME_MECHANIC_FRAME,
+                    target,
+                    source,
+                    target_ctx,
+                    source_ctx,
+                    inference_method="frame",
+                    confidence=0.65,
+                )
+                links += 1
+                if links >= MAX_FRAME_LINKS_PER_FACT:
+                    break
+
+    # Cross-frame level support links (shared deterministic level gate)
+    for level_scope, scope_facts in by_level_scope.items():
+        if len(scope_facts) < 2:
+            continue
+        ordered = sorted(scope_facts, key=lambda f: f.fact_id)
+        for idx, level_gate in enumerate(ordered):
+            if level_gate.fact_type != FactType.LEVEL_GATE:
+                continue
+            links = 0
+            for target in ordered:
+                if target.fact_id == level_gate.fact_id:
+                    continue
+                if target.fact_type == FactType.LEVEL_GATE:
+                    continue
+                if fact_owner_by_id:
+                    source_owner = fact_owner_by_id.get(level_gate.fact_id)
+                    target_owner = fact_owner_by_id.get(target.fact_id)
+                    if source_owner and target_owner and source_owner == target_owner:
+                        continue
+                source_ctx = contexts[level_gate.fact_id]
+                target_ctx = contexts[target.fact_id]
+                if source_ctx.clause_id == target_ctx.clause_id:
+                    continue
+                if not _passes_hybrid_gating(
+                    source_ctx,
+                    target_ctx,
+                    allow_cross_section=allow_cross_section,
+                    shared_subject=False,
+                    shared_role_scope=False,
+                ):
+                    continue
+                _add_relation(
+                    relations,
+                    seen,
+                    RelationType.REQUIRES_LEVEL_SUPPORTS,
+                    level_gate,
+                    target,
+                    source_ctx,
+                    target_ctx,
+                    inference_method="level_support",
+                    confidence=0.7,
+                )
+                links += 1
+                if links >= MAX_LEVEL_SUPPORT_LINKS_PER_FACT:
+                    break
+
+    # Cross-frame replacement links (explicit override targets)
+    if fact_owner_by_id and owner_name_by_id:
+        frame_ids_by_key: Dict[str, List[str]] = {}
+        for owner_id in by_owner.keys():
+            owner_name = owner_name_by_id.get(owner_id, "")
+            key = _normalize_key(owner_name)
+            if key:
+                frame_ids_by_key.setdefault(key, []).append(owner_id)
+
+        for fact in filtered:
+            if fact.fact_type not in {FactType.OVERRIDES, FactType.INSTEAD_OF}:
+                continue
+            if not fact.override_target:
+                continue
+            if fact.override_target.startswith("procedure:"):
+                continue
+            source_owner = fact_owner_by_id.get(fact.fact_id)
+            target_key = _normalize_key(fact.override_target)
+            target_frames = frame_ids_by_key.get(target_key) or []
+            if not target_frames:
+                continue
+            links = 0
+            for target_frame in target_frames:
+                if source_owner and target_frame == source_owner:
+                    continue
+                for target_fact in by_owner.get(target_frame, []):
+                    if target_fact.fact_id == fact.fact_id:
+                        continue
+                    source_ctx = contexts[fact.fact_id]
+                    target_ctx = contexts[target_fact.fact_id]
+                    if source_ctx.clause_id == target_ctx.clause_id:
+                        continue
+                    if not allow_cross_section:
+                        if source_ctx.section_path != target_ctx.section_path or not source_ctx.section_path:
+                            continue
+                    _add_relation(
+                        relations,
+                        seen,
+                        RelationType.REPLACES_EFFECT,
+                        fact,
+                        target_fact,
+                        source_ctx,
+                        target_ctx,
+                        inference_method="override",
+                        confidence=0.75,
+                    )
+                    links += 1
+                    if links >= MAX_REPLACE_LINKS_PER_FACT:
+                        break
+                if links >= MAX_REPLACE_LINKS_PER_FACT:
                     break
 
     return relations

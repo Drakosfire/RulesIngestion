@@ -22,6 +22,8 @@ RULESET_PROFILES_COLLECTION = "ruleset_profiles"
 ENRICHMENT_RUNS_COLLECTION = "enrichment_runs"
 RUN_INPUTS_COLLECTION = "run_inputs"
 RUN_OUTPUTS_COLLECTION = "run_outputs"
+TRAVERSAL_CONFIGS_COLLECTION = "traversal_configs"
+TRAVERSAL_INDEXES_COLLECTION = "traversal_indexes"
 
 
 def _model_dump(model) -> dict:
@@ -71,6 +73,20 @@ def get_run_outputs_collection(
     return client[db_name][RUN_OUTPUTS_COLLECTION]
 
 
+def get_traversal_configs_collection(
+    client: MongoClient, db_name: str = DEFAULT_DB_NAME
+) -> Collection:
+    """Get traversal_configs collection."""
+    return client[db_name][TRAVERSAL_CONFIGS_COLLECTION]
+
+
+def get_traversal_indexes_collection(
+    client: MongoClient, db_name: str = DEFAULT_DB_NAME
+) -> Collection:
+    """Get traversal_indexes collection."""
+    return client[db_name][TRAVERSAL_INDEXES_COLLECTION]
+
+
 def ensure_indexes(client: MongoClient, db_name: str = DEFAULT_DB_NAME) -> None:
     """Ensure baseline indexes exist for rules ingestion collections."""
     get_ruleset_configs_collection(client, db_name).create_index(
@@ -89,6 +105,22 @@ def ensure_indexes(client: MongoClient, db_name: str = DEFAULT_DB_NAME) -> None:
     get_enrichment_runs_collection(client, db_name).create_index([("started_at", -1)])
     get_run_inputs_collection(client, db_name).create_index([("run_id", 1)])
     get_run_outputs_collection(client, db_name).create_index([("run_id", 1)])
+    
+    # Traversal config indexes
+    get_traversal_configs_collection(client, db_name).create_index(
+        [("ruleset_id", 1), ("version", -1)], unique=True
+    )
+    get_traversal_configs_collection(client, db_name).create_index(
+        [("ruleset_id", 1), ("updated_at", -1)]
+    )
+    
+    # Traversal index metadata indexes
+    get_traversal_indexes_collection(client, db_name).create_index(
+        [("ruleset_id", 1), ("book_id", 1), ("run_id", 1)], unique=True
+    )
+    get_traversal_indexes_collection(client, db_name).create_index(
+        [("ruleset_id", 1), ("created_at", -1)]
+    )
 
 
 def save_ruleset_profile(

@@ -1,4 +1,9 @@
 # Rules Ingestion Architecture
+
+> **DEPRECATED**: This document has been superseded by [ARCHITECTURE.md](ARCHITECTURE.md).
+> Please refer to the new documentation for current, comprehensive architecture information.
+> This file is preserved for historical reference only.
+
 **Date:** 2026-01-24
 **Scope:** RulesIngestion service only
 
