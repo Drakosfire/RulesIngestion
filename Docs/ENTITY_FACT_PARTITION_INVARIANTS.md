@@ -19,6 +19,8 @@ When this is true: validation stops flagging fact nodes as "missing canonical_id
 
 ## Node-kind partition
 
+**Entity-ness is an explicit kind, not a derived property.** No node is an entity by default. A node is an entity only if it is classified as such by the partition (e.g. via `node_type` → kind mapping). "Anything that isn't structural or fact" must not be treated as entity by default—the kind must be explicit so the partition cannot drift.
+
 ### 1. Structural nodes
 
 | `node_type` | Meaning | canonical_id | In alias map? | header_scope target? |
@@ -61,15 +63,39 @@ When this is true: validation stops flagging fact nodes as "missing canonical_id
 
 **Invariants:**
 
-- MUST NOT require `canonical_id`. Fact identity is `fact_id` (and provenance), not canonicalization.
+- MUST NOT require `canonical_id`. Fact identity is local and contextual (fact_id + provenance), not global or canonical.
 - MUST NOT participate in alias maps (no name-key → fact_id resolution for canonical lookup).
 - MUST NOT be the **target** of `describes` with `extraction_method="header_scope"` (scope applies to entities, not facts).
 - MUST be **owned** by a chunk (via `has_fact`) and optionally by an entity (e.g. `belongs_to`); facts are never owners of entities.
+- MUST NOT be the **source** of semantic relations between entities (e.g. requires, modifies, replaces_effect); facts participate only as assertions, not as semantic hubs.
 - MAY have provenance: `source_document`, `source_chunk_id`, `clause_id`, `extraction_method`.
 
 **Validation:** Fact nodes MUST be excluded from the "missing canonical_id" check. The validator should treat `node_type == "RuleFact"` (or whatever the canonical fact kind is) as non-entity.
 
 **Traversal:** Traversal that reasons about "entities" (e.g. structural_coreference, entity_to_chunks) MUST NOT treat fact nodes as entities. Edges can be gated by node kind so that entity → fact → chunk → entity is explicit and purity is computed per layer.
+
+---
+
+## Derived predicate: `is_entity_like`
+
+Define a single helper used by traversal and metrics (not a node kind—a derived predicate):
+
+**Definition:** `is_entity_like(node)` → true only for entity nodes (not structural, not fact).
+
+**Require that** all of the following operate exclusively on nodes for which `is_entity_like(node)` is true:
+
+- Entity counts
+- Alias maps (read and write)
+- Entity-to-entity traversal purity
+- Semantic adjacency scoring
+
+**Why this helps:**
+
+- Centralizes the partition logic in one place; call sites use the predicate instead of re-deriving "is this an entity?"
+- Prevents future code from silently reintroducing "everything non-structural is an entity."
+- Keeps `node_type` expressive (Spell, Feat, etc.) without coupling validation or metrics to string comparisons.
+
+Implement as a thin wrapper over the `node_type` → kind mapping (or over `node_kind` if that field is added).
 
 ---
 
@@ -112,6 +138,7 @@ When this is true: validation stops flagging fact nodes as "missing canonical_id
 - [ ] Change `_validate_graph`: require `canonical_id` only for nodes with kind **entity**. Do not flag structural or fact nodes.
 - [ ] Optional: add an explicit `node_kind` field on nodes at build time so validation and traversal don’t depend on ad-hoc type lists.
 - [ ] Update any "entity count" or purity logic to exclude fact (and optionally structural) nodes from the entity set.
+- [ ] Implement `is_entity_like(node)` and use it for entity counts, alias-map access, traversal purity, and semantic adjacency; do not re-derive "is entity?" elsewhere.
 
 ---
 
