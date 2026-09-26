@@ -158,7 +158,11 @@ def run(fixture: Path, *, proposal_model: str, adjudicator_model: str, jev_model
         "jev_noul_boolean_threshold": 0.5,
         "proposal_request_digest": proposal_digest,
         "source_evidence_unit_ids": sorted(evidence_ids),
+        "candidate_evidence_refs": {
+            candidate.candidate_id: list(candidate.evidence_unit_ids) for candidate in candidates
+        },
         "proposal_model": proposal_receipt["resolved_model"],
+        "provider_routes": {"structured_llm": "openai-responses", "jev": "vercel-ai-gateway/typesafe"},
         "treatment_models": {name: sorted(values) for name, values in model_identities.items()},
         "per_decision": comparison["per_candidate"],
         "rates": comparison["rates"],
