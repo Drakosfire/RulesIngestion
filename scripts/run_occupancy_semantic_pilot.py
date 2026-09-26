@@ -142,13 +142,20 @@ def run(fixture: Path, *, proposal_model: str, adjudicator_model: str, jev_model
             "jev": outputs["jev"][candidate.candidate_id],
         }
         for candidate in candidates
-        if any(outputs[t][candidate.candidate_id]["disposition"] != gold[candidate.candidate_id]["disposition"] for t in outputs)
+        if any(
+            outputs[t][candidate.candidate_id][field] != gold[candidate.candidate_id][field]
+            for t in outputs for field in ("classification", "evidence_sufficient", "disposition")
+        )
         or outputs["structured_llm"][candidate.candidate_id]["disposition"] != outputs["jev"][candidate.candidate_id]["disposition"]
     ]
     stable = {
         "schema_version": "occupancy-semantic-pilot-summary-v1",
         "candidate_package_digest": digest(package),
         "human_gold_digest": digest(gold_document),
+        "human_gold_review_or_unresolved": sum(
+            decision["disposition"] in {"review", "unresolved"} for decision in gold.values()
+        ),
+        "jev_noul_boolean_threshold": 0.5,
         "proposal_request_digest": proposal_digest,
         "source_evidence_unit_ids": sorted(evidence_ids),
         "proposal_model": proposal_receipt["resolved_model"],
