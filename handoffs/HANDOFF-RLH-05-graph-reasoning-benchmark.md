@@ -1,12 +1,45 @@
 # HANDOFF — RLH-05 graph reasoning benchmark
 
-**Status:** ACTIVE — bounded controller implemented; promotion blocked by substrate coverage  
+**Status:** HOLD — bounded controller exists, but acceptance/review is blocked on the GenerationEngine migration side quest  
 **Repository:** `Drakosfire/RulesIngestion`  
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
-**Predecessor:** `RLH_04_DUNGEONMIND_RETRIEVAL_BENCHMARK_ACCEPTED`  
+**Predecessors:** `RLH_04_DUNGEONMIND_RETRIEVAL_BENCHMARK_ACCEPTED` + `RIGE_04_DIRECT_PROVIDER_DEMOLITION_ACCEPTED`  
 **Primary question:** Does bounded graph-assisted closure materially improve required-evidence assembly or answer support over retrieval-only under a fixed budget?  
 **Parallel:** RLH-06 → RLH-08 product lane may proceed without waiting for this result.  
 **Unlocks:** RLH-09 uses this result to decide whether graph closure belongs in formal-rule preparation.
+
+## Mandatory side-quest re-entry gate
+
+Cross-repo authority: `Drakosfire/DungeonOverMind/Docs/Plans/STACK-rules-ingestion-generationengine-sidequest.md`.
+
+This branch was implemented before RulesIngestion inference ownership was moved behind GenerationEngine. Its current head is **not eligible for acceptance review**.
+
+Before RLH-05 review resumes:
+
+1. GEJ-01 and GEJ-02 must be accepted in GenerationEngine.
+2. RIGE-01 → RIGE-04 must be accepted in RulesIngestion.
+3. Rebase/reconstruct this branch onto the accepted RIGE-04 merge, not the historical direct-provider base.
+4. Re-census every changed file against RIGE-04. Preserve the bounded graph controller only where it still applies cleanly.
+5. Replace any direct structured-LLM/Jev execution with the accepted GenerationEngine consumer surfaces.
+6. Regenerate any model-backed receipts, treatment outputs, manifests, or experiment summaries whose execution identity changed.
+7. Preserve historical direct-provider artifacts as historical evidence; do not relabel them as GE-backed.
+8. Refresh this handoff with the exact rebased base/head and the new execution-contract evidence before requesting review.
+
+The existing substrate finding — available occupancy evidence is too small to support a valid multihop A–E comparison and therefore currently yields `GRAPH_ASSIST_NO_PROMOTION` — remains useful. It is **not** an acceptance token and does not bypass the migration gate.
+
+After RIGE-04, all generative/decision inference in RLH-05 must cross GenerationEngine. Embedding retrieval remains an explicit RulesIngestion-owned exception.
+
+### Side-quest stack position
+
+```text
+GEJ-01 → GEJ-02
+          ↓
+RIGE-01 → RIGE-02 → RIGE-03 → RIGE-04
+                                      ↓
+                                  RLH-05  ← YOU ARE HERE
+                                      ↓
+                                  RLH-09
+```
 
 ## Experimental slice
 
@@ -27,8 +60,8 @@ Compare:
 A. existing retrieval-only baseline;  
 B. DungeonMind evidence retrieval only;  
 C. DungeonMind retrieval + bounded structural/semantic neighborhood closure;  
-D. C with edges retained only by structured-LLM adjudication;  
-E. C with equivalent edges retained by Jev adjudication.
+D. C with edges retained only by structured-LLM adjudication executed through GenerationEngine;  
+E. C with equivalent edges retained by GenerationEngine's TypeSafe/Jev decision provider.
 
 Maximum graph expansion: two hops. Use explicit candidate/evidence budgets. No open-ended traversal.
 
