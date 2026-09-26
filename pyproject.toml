@@ -15,6 +15,7 @@ dependencies = [
     "pytest>=9.0.2",
     "pyyaml>=6.0",
     "typesafe-sdk>=0.7.1,<0.8",
+    "dungeonmind",
 ]
 
 [project.optional-dependencies]
@@ -46,3 +47,6 @@ retrieval-lab = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.uv.sources]
+dungeonmind = { git = "https://github.com/Drakosfire/DungeonMind.git", rev = "54a419f99057d96e0c4e7620d8bd8ccc6816fb62" }

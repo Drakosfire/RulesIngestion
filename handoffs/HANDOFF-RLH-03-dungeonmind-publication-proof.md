@@ -1,6 +1,6 @@
 # HANDOFF — RLH-03 DungeonMind publication proof
 
-**Status:** DEFERRED DRAFT  
+**Status:** ACCEPTED — generic V3 publication and durable reopen proved
 **Repository:** `Drakosfire/RulesIngestion`  
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
 **Predecessor:** `RLH_02_OCCUPANCY_SEMANTIC_PILOT_ACCEPTED`  
@@ -20,6 +20,8 @@ WorldKeeper is not in this path. This is a batch/lab producer publishing governe
 ## Re-anchor before coding
 
 Pin the exact accepted DungeonMind revision used by the experiment and record it in the run manifest. Re-read DungeonMind's current vNext roadmap, contracts, V5 write path, V3 profile authority, and source/evidence contracts.
+
+Activated after RulesIngestion PR #2 merged at `0ec3e3b59566a2ab06a3288026f8fa73569ce0cc`. The experimental DungeonMind dependency is pinned to `54a419f99057d96e0c4e7620d8bd8ccc6816fb62` (merged V3 authority PR #78).
 
 ## Build exactly this
 
@@ -90,6 +92,10 @@ Acceptance token:
 ```text
 RLH_03_DUNGEONMIND_PUBLICATION_PROOF_ACCEPTED
 ```
+
+## Acceptance witness
+
+`evals/semantic_lifting/occupancy_v1/dungeonmind_publication_witness.json` records the exact PostgreSQL publication receipt, source artifact/revision descriptors, reversible EvidenceUnit mapping, V3 space and child revision IDs, and reopened assertions/evidence. Two accepted claims publish; the overbroad Prone consequence and unsupported ally-prone negative control are excluded. The child revision `rev:77293aef29dd5324f6b300da1ac970aa` reopens from a separate process and PostgreSQL repository with identical payload digest, assertions, and evidence. The full RulesIngestion suite passes (348 tests). No DungeonMind kernel change was needed.
 
 ## Stop conditions
 

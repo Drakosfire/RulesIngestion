@@ -1,0 +1,148 @@
+{
+  "schema_version": "rlh-03-publication-witness-v1",
+  "dungeonmind_revision": "54a419f99057d96e0c4e7620d8bd8ccc6816fb62",
+  "space_id": "space:rules-occupancy-srd-5-2-1-v1",
+  "genesis_revision_id": "rev:b68a3ff6e2c949679ff4adbadb406e91",
+  "published_revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+  "publication_id": "publication:rules-occupancy:63aeaa2c8d208dc4812bc860a0804ad535f61ae7fadc72a46eca30b13dc9b579",
+  "publication_receipt": {
+    "schema_version": "dm_knowledge_publication_receipt_v1",
+    "space_id": "space:rules-occupancy-srd-5-2-1-v1",
+    "publication_id": "publication:rules-occupancy:63aeaa2c8d208dc4812bc860a0804ad535f61ae7fadc72a46eca30b13dc9b579",
+    "command_sha256": "4b3954af88abb0a99d42fd579f0161b3a8c501224c7387067da8c01f1619ca77",
+    "expected_parent_revision_id": "rev:b68a3ff6e2c949679ff4adbadb406e91",
+    "published_revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+    "graph_payload_sha256": "6aae8307c44561f6bb91129b0cb62129a8578bcf3618aa2602b703a0cc812eda",
+    "status": "published"
+  },
+  "source_artifact": {
+    "schema_version": "dm_source_artifact_v3",
+    "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+    "source_classification": "rules:srd",
+    "current_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+    "authority": "primary",
+    "visibility": {
+      "kind": "public"
+    },
+    "status": "active",
+    "uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+    "foreign_refs": [
+      "rulesingestion:evidence-unit:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+    ],
+    "domain_metadata": [],
+    "created_at": null,
+    "updated_at": null
+  },
+  "source_revision": {
+    "schema_version": "dm_source_revision_v2",
+    "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+    "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+    "content_sha256": "8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+    "body_storage": "external:official-srd-pdf",
+    "locator": "printed-page:14;section:Moving around Other Creatures",
+    "created_at": "2026-09-26T00:00:00Z"
+  },
+  "evidence_ref": {
+    "schema_version": "dm_evidence_ref_v3",
+    "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+    "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+    "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+    "evidence_role": "support",
+    "can_open_source": true,
+    "can_highlight_span": false,
+    "locator": "printed-page:14;section:Moving around Other Creatures",
+    "uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+    "source_locator": "rulesingestion:evidence-unit:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+    "line_ref": null,
+    "source_span_ref_id": null,
+    "domain_metadata": []
+  },
+  "accepted_candidate_ids": [
+    "occ-f3debc71f994db571810",
+    "occ-7154bb6597ce44cc9df4"
+  ],
+  "excluded_candidate_ids": [
+    "occ-8a4ffedfeb0cbb6603d5",
+    "occ-ac078aa3647a18cb9634"
+  ],
+  "result_bindings": {
+    "assertion:occ-7154bb6597ce44cc9df4": "asrt:b167df5030e8b90787dac97b0b60b204",
+    "assertion:occ-f3debc71f994db571810": "asrt:240f46b55fa9fb12b9ee1f8bed0a1472",
+    "entity:occ-7154bb6597ce44cc9df4": "ent:5898f39dfb1870aff685311644b387b3",
+    "entity:occ-f3debc71f994db571810": "ent:9becbe0cc0dff0c33b0ad97b5f789749"
+  },
+  "reopened_payload_sha256": "6aae8307c44561f6bb91129b0cb62129a8578bcf3618aa2602b703a0cc812eda",
+  "reopened_assertions": [
+    {
+      "assertion_id": "asrt:240f46b55fa9fb12b9ee1f8bed0a1472",
+      "metadata": {
+        "claim_mode": "rules:source-grounded",
+        "domain_metadata": [],
+        "epistemic_basis": "asserted",
+        "evidence_ref_ids": [
+          "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "scope": [],
+        "standing": "established",
+        "temporal_scope": {
+          "kind": "timeless"
+        },
+        "visibility": {
+          "kind": "public"
+        }
+      },
+      "predicate": "rules.occupancy:restriction",
+      "schema_version": "dm_assertion_v1",
+      "subject_entity_id": "ent:9becbe0cc0dff0c33b0ad97b5f789749",
+      "value": {
+        "kind": "literal",
+        "value": "creature movement cannot end move willingly in occupied space another creature's space"
+      }
+    },
+    {
+      "assertion_id": "asrt:b167df5030e8b90787dac97b0b60b204",
+      "metadata": {
+        "claim_mode": "rules:source-grounded",
+        "domain_metadata": [],
+        "epistemic_basis": "asserted",
+        "evidence_ref_ids": [
+          "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "scope": [],
+        "standing": "established",
+        "temporal_scope": {
+          "kind": "timeless"
+        },
+        "visibility": {
+          "kind": "public"
+        }
+      },
+      "predicate": "rules.occupancy:exception",
+      "schema_version": "dm_assertion_v1",
+      "subject_entity_id": "ent:5898f39dfb1870aff685311644b387b3",
+      "value": {
+        "kind": "literal",
+        "value": "prone on ending turn in same space does not apply if creature is Tiny or larger than the other creature"
+      }
+    }
+  ],
+  "reopened_evidence": [
+    {
+      "can_highlight_span": false,
+      "can_open_source": true,
+      "domain_metadata": [],
+      "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+      "evidence_role": "support",
+      "line_ref": null,
+      "locator": "printed-page:14;section:Moving around Other Creatures",
+      "schema_version": "dm_evidence_ref_v3",
+      "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+      "source_locator": "rulesingestion:evidence-unit:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+      "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+      "source_span_ref_id": null,
+      "uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf"
+    }
+  ],
+  "repository_kind": "postgresql",
+  "independent_reopen": true
+}
