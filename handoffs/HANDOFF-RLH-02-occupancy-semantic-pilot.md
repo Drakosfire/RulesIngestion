@@ -1,15 +1,15 @@
 # HANDOFF — RLH-02 occupancy semantic pilot
 
-**Status:** DEFERRED DRAFT  
-**Repository:** `Drakosfire/RulesIngestion`  
-**Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
-**Predecessor:** `RLH_01_JEV_DECISION_ADAPTER_ACCEPTED`  
-**Primary question:** Can one bounded PHB occupancy slice become an auditable semantic candidate package whose claims remain tied to exact EvidenceUnits and whose adjudication can be compared against human gold?  
+**Status:** BLOCKED — source-rule mismatch discovered during activation re-anchor
+**Repository:** `Drakosfire/RulesIngestion`
+**Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`
+**Predecessor:** `RLH_01_JEV_DECISION_ADAPTER_ACCEPTED`
+**Primary question:** Can one bounded PHB occupancy slice become an auditable semantic candidate package whose claims remain tied to exact EvidenceUnits and whose adjudication can be compared against human gold?
 **Unlocks:** RLH-03
 
 ## Re-anchor before coding
 
-Rebase onto the accepted RLH-01 head. Re-read:
+Rebased onto `RulesIngestion main@175f03e6a9adf95d423dbff24ff46eef4c17015f` after RLH-01 merged. Re-read:
 
 - `Docs/Design/occupancy_vertical_slice_v0.md`;
 - canonical Stage A/B and Retrieval Lab design docs;
@@ -17,6 +17,12 @@ Rebase onto the accepted RLH-01 head. Re-read:
 - current answer-eval/structured-output model patterns.
 
 Do not revive archived Stage C contracts as authority.
+
+### Activation blocker
+
+The checked-in design expects an ally-prone allowance for willingly ending movement in an occupied space. The official [2024 Basic Rules, Moving around Other Creatures](https://www.dndbeyond.com/sources/dnd/br-2024/playing-the-game) and [SRD 5.2.1, page 14](https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf) instead prohibit willingly ending a move in another creature's space. They describe Prone as a consequence if a turn somehow ends in a shared space, not as an allowance for a prone ally. No PHB Stage B EvidenceUnits or the referenced occupancy retrieval benchmark are checked in here or available in the local owner checkout.
+
+Stop before proposing semantic candidates or fabricating EvidenceUnits. Activation requires either exact 2024 PHB EvidenceUnits supporting the claimed allowance or a reviewed correction to the occupancy slice, its human gold, and downstream acceptance fixtures.
 
 ## Slice
 
