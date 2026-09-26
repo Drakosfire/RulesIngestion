@@ -1,0 +1,9 @@
+{
+  "schema_version": "rules_formal_review_v1",
+  "disposition": "approved",
+  "approved_rule_id": "dnd5e-2024-srd-occupancy-end-move",
+  "source": "srd-5.2.1-human-gold-and-user-correction",
+  "reviewed_candidate_ids": ["occ-f3debc71f994db571810"],
+  "excluded_candidate_ids": ["occ-ac078aa3647a18cb9634"],
+  "note": "User directed correction to the sourced prohibition; reviewed human gold accepts the restriction and rejects the ally-prone allowance. Approval is scoped to this end-of-move restriction."
+}
