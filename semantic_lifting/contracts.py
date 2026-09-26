@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from hashlib import sha256
 import json
+from hashlib import sha256
 from typing import Any
 
 from generationengine import InferenceObservation
 
-
-GENERATIONENGINE_COMMIT = "cf5bee24fa0a469a80c91c5e48992726eab8aa8d"
+GENERATIONENGINE_COMMIT = "55f6707de40c62893855b13e875730e804853d61"
 GE_RECEIPT_SCHEMA_VERSION = "semantic-ge-receipt-v2"
 
 

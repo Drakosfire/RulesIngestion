@@ -2,22 +2,30 @@
 
 from __future__ import annotations
 
-import json
 import asyncio
+import json
 import tomllib
 from pathlib import Path
 
 from generationengine import (
-    BinaryDecisionAnswer, ChoiceDecisionAnswer, DecisionResult, GenerationClient,
-    InferenceObservation, ObservationState, TextGenerationResult, TextResult,
+    BinaryDecisionAnswer,
+    ChoiceDecisionAnswer,
+    DecisionResult,
+    GenerationClient,
+    InferenceObservation,
+    ObservationState,
+    TextGenerationResult,
+    TextResult,
 )
 
 from scripts.run_occupancy_semantic_pilot import run
-from semantic_lifting.adjudication import CLASSIFICATION_CRITERIA, DISPOSITION_CRITERIA
+from semantic_lifting.adjudication import (
+    CLASSIFICATION_CRITERIA,
+    DISPOSITION_CRITERIA,
+    adjudicate_structured,
+)
 from semantic_lifting.contracts import GENERATIONENGINE_COMMIT, ge_contract, ge_receipt
-from semantic_lifting.adjudication import adjudicate_structured
 from semantic_lifting.proposal import propose
-
 
 FIXTURE = Path(__file__).resolve().parents[2] / "evals/semantic_lifting/occupancy_v1"
 

@@ -5,23 +5,33 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-from pathlib import Path
 import sys
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from generationengine import GenerationClient
 
 from semantic_lifting.adjudication import (
-    adjudicate_jev, adjudicate_structured, jev_contract, judgment_state, structured_contract,
+    adjudicate_jev,
+    adjudicate_structured,
+    jev_contract,
+    judgment_state,
+    structured_contract,
 )
 from semantic_lifting.contracts import (
-    GENERATIONENGINE_COMMIT, canonical_json, digest, verify_ge_receipt,
+    GENERATIONENGINE_COMMIT,
+    canonical_json,
+    digest,
+    verify_ge_receipt,
 )
-from semantic_lifting.occupancy import SemanticCandidate, compare_with_gold, load_exact_evidence
+from semantic_lifting.occupancy import (
+    SemanticCandidate,
+    compare_with_gold,
+    load_exact_evidence,
+)
 from semantic_lifting.proposal import proposal_contract, propose
-
 
 DEFAULT_FIXTURE = Path(__file__).resolve().parents[1] / "evals/semantic_lifting/occupancy_v1"
 GE_RUN_DIR = "generationengine_v2"

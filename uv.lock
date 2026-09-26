@@ -376,7 +376,7 @@ wheels = [
 [[package]]
 name = "generationengine"
 version = "0.1.0"
-source = { git = "https://github.com/Drakosfire/GenerationEngine.git?rev=cf5bee24fa0a469a80c91c5e48992726eab8aa8d#cf5bee24fa0a469a80c91c5e48992726eab8aa8d" }
+source = { git = "https://github.com/Drakosfire/GenerationEngine.git?rev=55f6707de40c62893855b13e875730e804853d61#55f6707de40c62893855b13e875730e804853d61" }
 dependencies = [
     { name = "httpx" },
     { name = "jsonschema" },
@@ -1755,7 +1755,7 @@ requires-dist = [
     { name = "easydict", marker = "extra == 'deepseek-ocr2'", specifier = ">=1.13" },
     { name = "einops", marker = "extra == 'deepseek-ocr2'", specifier = ">=0.8.2" },
     { name = "einops", marker = "extra == 'retrieval-lab'", specifier = ">=0.7.0" },
-    { name = "generationengine", extras = ["openai", "typesafe"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=cf5bee24fa0a469a80c91c5e48992726eab8aa8d" },
+    { name = "generationengine", extras = ["openai", "typesafe"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=55f6707de40c62893855b13e875730e804853d61" },
     { name = "img2pdf", marker = "extra == 'deepseek-ocr2'", specifier = ">=0.6.3" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "numpy", marker = "extra == 'deepseek-ocr2'", specifier = ">=2.4.1" },
