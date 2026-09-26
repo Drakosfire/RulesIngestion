@@ -1,6 +1,6 @@
 # HANDOFF — RIGE-01 Semantic lifting through GenerationEngine
 
-**Status:** ACTIVE — implementation lease, pending acceptance
+**Status:** ACTIVE — offline implementation complete; live acceptance witness pending
 **Repository:** `Drakosfire/RulesIngestion`
 **Creation anchor:** `main@b4a06e8b28ac34d40add64978a11116c6a24cf9c` (RLH-04 merged)
 **Cross-repo authority:** `Drakosfire/DungeonOverMind/Docs/Plans/STACK-rules-ingestion-generationengine-sidequest.md`
@@ -178,3 +178,11 @@ Stop/split if:
 - GE structured generation cannot preserve a required semantic contract;
 - exact GE execution identity cannot be captured in experiment artifacts;
 - migration requires changing human gold or evidence identity.
+
+## Implementation evidence and current blocker (2026-09-26)
+
+- Exact intended RulesIngestion base: `main@b4a06e8b28ac34d40add64978a11116c6a24cf9c`; tested implementation commit: `b6504fc54f31f4e217c05abe871be1cf9e84ba01`.
+- `pyproject.toml` and `uv.lock` pin GEJ-02 exactly at `cf5bee24fa0a469a80c91c5e48992726eab8aa8d` with OpenAI and TypeSafe extras. Direct TypeSafe SDK imports and the local Jev adapter are removed. Remaining direct OpenAI consumers are outside this slice and stay on OpenAI 2.x for RIGE-02/03.
+- The active proposal, structured adjudication, Jev adjudication, and opt-in Jev smoke now call GenerationEngine. Caller-owned prompts, schemas, question criteria, fixed candidate/human-gold package, and experiment comparison remain here. New GE-v2 receipts include exact execution commit, operation, request identity, GE observation, semantic digest, and receipt integrity digest. Existing direct-provider receipts are untouched.
+- Offline seam tests passed, including execution through the real GE structured boundary with a fake provider, preserved Choice criteria descriptions, immutable candidate/human-gold fixture, replay drift rejection, and telemetry-independent semantic digest. `uv lock --check`, narrow Ruff, and full `pytest -q` passed: 341 tests.
+- The required live occupancy pilot did not run. Automatic approval review rejected sending the checked-in occupancy evidence and prompts to external OpenAI/TypeSafe inference providers because it did not find explicit authorization for that payload. An explicit user authorization request is pending. No live GE-v2 provider receipts or comparison report exist yet. This is the smallest remaining blocker; acceptance token is **not** satisfied.
