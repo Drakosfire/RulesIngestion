@@ -4,12 +4,14 @@
 **Repository:** `Drakosfire/RulesIngestion`
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`
 **Predecessor:** `RLH_01_JEV_DECISION_ADAPTER_ACCEPTED`
-**Primary question:** Can one bounded PHB occupancy slice become an auditable semantic candidate package whose claims remain tied to exact EvidenceUnits and whose adjudication can be compared against human gold?
+**Primary question:** Can one bounded source-grounded 2024 occupancy slice become an auditable semantic candidate package whose claims remain tied to exact EvidenceUnits and whose adjudication can be compared against human gold?
 **Unlocks:** RLH-03
 
 ## Re-anchor before coding
 
-Rebased onto `RulesIngestion main@175f03e6a9adf95d423dbff24ff46eef4c17015f` after RLH-01 merged. Re-read:
+Rebased onto `RulesIngestion main@175f03e6a9adf95d423dbff24ff46eef4c17015f` after RLH-01 merged. Central source-rule correction merged in DungeonOverMind PR #9 at `823c6aa5c0a87090d8d83562691a6a98924bbe7b`.
+
+Re-read:
 
 - `Docs/Design/occupancy_vertical_slice_v1.md` (which supersedes the incorrect v0 ally-prone branch);
 - canonical Stage A/B and Retrieval Lab design docs;
