@@ -1,11 +1,43 @@
 # HANDOFF — RLH-09 reviewed rule artifact
 
-**Status:** ACTIVE — implementation candidate, pending review  
+**Status:** HOLD — implementation candidate exists, but review is blocked on the GenerationEngine migration and reconciled RLH-05  
 **Repository:** `Drakosfire/RulesIngestion`  
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
-**Predecessor:** RLH-05 no-promotion substrate audit; accepted RLH-02/03 occupancy semantics  
+**Predecessors:** `RIGE_04_DIRECT_PROVIDER_DEMOLITION_ACCEPTED`; then a rebased/reviewed `RLH_05_GRAPH_REASONING_BENCHMARK_ACCEPTED` or explicit accepted no-promotion disposition; accepted RLH-02/03 occupancy semantics  
 **Primary question:** Can the occupancy evidence/semantic package become one small reviewed formal rule artifact suitable for a deterministic consumer while preserving exact source traceability?  
 **Unlocks:** RLH-10
+
+## Mandatory stack/rebase gate
+
+Cross-repo authority: `Drakosfire/DungeonOverMind/Docs/Plans/STACK-rules-ingestion-generationengine-sidequest.md`.
+
+This branch is physically descended from the pre-migration RLH-05 branch. Its current head is not eligible for acceptance review.
+
+Required sequence:
+
+1. GEJ-01/02 accepted.
+2. RIGE-01→04 accepted.
+3. RLH-05 rebased/reconciled onto RIGE-04.
+4. RLH-05 reviewed and settled with a decision-complete graph disposition.
+5. Rebase/reconstruct RLH-09 onto that settled RLH-05 state.
+6. Re-run formal-artifact tests and regenerate any compiler/run identity that depends on upstream experiment artifacts.
+7. Refresh this handoff with exact base/head before review.
+
+Do not preserve graph input merely because the old branch contains it. If the reconciled RLH-05 disposition remains no-promotion, RLH-09 must continue to compile from accepted semantic/evidence inputs without graph closure.
+
+### Stack position
+
+```text
+GEJ-01 → GEJ-02
+          ↓
+RIGE-01 → RIGE-02 → RIGE-03 → RIGE-04
+                                      ↓
+                                   RLH-05
+                                      ↓
+                                   RLH-09  ← YOU ARE HERE
+                                      ↓
+                                   RLH-10 → RLH-11
+```
 
 ## Important distinction
 
