@@ -139,7 +139,7 @@ def _extract_raw_text(resp: Any) -> str:
 
 @lru_cache(maxsize=1)
 def _load_model_policy() -> Dict[str, Any]:
-    model_policy_path = Path(__file__).resolve().parents[3] / "MODEL_POLICY.json"
+    model_policy_path = Path(__file__).resolve().parents[2] / "MODEL_POLICY.json"
     if not model_policy_path.exists():
         raise FileNotFoundError(f"MODEL_POLICY.json not found: {model_policy_path}")
     return json.loads(model_policy_path.read_text(encoding="utf-8"))
