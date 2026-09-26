@@ -1,0 +1,23 @@
+{
+  "unit_count": 1,
+  "units": [
+    {
+      "unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+      "unit_type": "prose",
+      "text": "Moving around Other Creatures — You can’t willingly end a move in a space occupied by another creature. If you somehow end a turn in a space with another creature, you have the Prone condition (see “Rules Glossary”) unless you are Tiny or are of a larger size than the other creature.",
+      "structural_path": [
+        "Moving around Other Creatures"
+      ],
+      "ordering_key": 0,
+      "page_fingerprint": "008789fb51c05be746534eed53c009be3dc4ee625c6df972a993a2dba757a7b5",
+      "content_hash": "154cf1e3e0abb269e93b9cfcad1a5b79792e482a7aa80ffc41a2e189f5596197",
+      "source_line_start": 0,
+      "source_line_end": 2,
+      "anomaly_flags": [],
+      "content_version": "srd-5.2.1-p14-manual-structural-transcript-v1"
+    }
+  ],
+  "gate_diagnostics": [],
+  "gates_passed": true,
+  "salvage_score": 1.0
+}

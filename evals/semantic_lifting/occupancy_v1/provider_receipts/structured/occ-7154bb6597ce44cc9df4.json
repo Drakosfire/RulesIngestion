@@ -1,0 +1,29 @@
+{
+  "contract": {
+    "model": "gpt-5.3-codex",
+    "state_digest": "5ccd528c29e4507cb3292021e112af9db6fe729d5a216be18cbbed92dbbe7d83",
+    "prompt_hash": "c9d77127e71846389c5e0cadfc6ae142e747026bc0b7b9337c0a70d68675c781",
+    "schema_hash": "72f457f4adb7dd539479731747b8876e103fcfec0568b6c15851964350893976"
+  },
+  "request_digest": "46ac824bf75249a4699be17180f1335a95393bed58168e73944d97902708b0aa",
+  "provider_response_id": "resp_0e423c57c071f07a006ab75294ed3c87d1a2aeaae484114824",
+  "resolved_model": "gpt-5.3-codex",
+  "usage": {
+    "input_tokens": 688,
+    "input_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    "output_tokens": 103,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 791
+  },
+  "output": {
+    "classification": "exception",
+    "evidence_sufficient": true,
+    "disposition": "accept",
+    "rationale": "The evidence explicitly states a consequence (you have the Prone condition if you end a turn in another creature’s space) and then provides an explicit unless-clause: 'unless you are Tiny or are of a larger size than the other creature.' This directly supports the candidate’s exception claim ('does not apply if ... creature is Tiny or larger than the other creature')."
+  }
+}

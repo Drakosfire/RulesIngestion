@@ -27,7 +27,8 @@ Current policy note (2026-03): NextPlaid/GTE is retained as a profile-gated firs
 | **gold_resolution_design.md** | Canonical adjunct | Benchmark definition/projection lifecycle and contract validation model. |
 | **ARCHITECTURE-TOC-Structural-Enrichment.md** | Canonical adjunct | TOC enrichment architecture used by Mark III substrate shaping. |
 | **SPEC-Controller-V0-Operators.md** | Canonical adjunct | Controller v0 contract and operator policy, with implementation notes. |
-| **occupancy_vertical_slice_v0.md** | Draft (in review) | First runtime rule vertical slice for occupancy legality. |
+| **occupancy_vertical_slice_v1.md** | Active correction | Source-grounded 2024 occupancy rule and first runtime slice. |
+| **occupancy_vertical_slice_v0.md** | Superseded | Historical draft with unsupported ally-prone allowance. |
 | **STAGE_A_CONTRACT.md**, **STAGE_B_CONTRACT.md** | Legacy stubs | Compatibility stubs; point to current suite + archived historical contract copies. |
 | **decision_lock_in_and_next_spec.md**, **stage_ab_v1_stabilization_checklist.md** | Historical in place | Planning / lock-in notes kept for rationale; not normative. |
 | **ARCHITECTURE-Chunking-System-Deep-Dive-2026-02-28.md** | Historical in place | Dated regression and hardening analysis; useful context, not primary spec. |

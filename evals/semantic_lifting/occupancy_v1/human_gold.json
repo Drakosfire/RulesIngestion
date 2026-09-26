@@ -1,0 +1,30 @@
+{
+  "schema_version": "occupancy-human-gold-v1",
+  "source": "SRD 5.2.1, printed page 14, Moving around Other Creatures",
+  "decisions": {
+    "occ-f3debc71f994db571810": {
+      "classification": "restriction",
+      "evidence_sufficient": true,
+      "disposition": "accept",
+      "rationale": "The source directly prohibits willingly ending a move in another creature's space."
+    },
+    "occ-8a4ffedfeb0cbb6603d5": {
+      "classification": "consequence",
+      "evidence_sufficient": false,
+      "disposition": "review",
+      "rationale": "The Prone consequence is real but this candidate omits the source's Tiny and larger-than-other-creature exclusions. It cannot be accepted as an unconditional claim."
+    },
+    "occ-7154bb6597ce44cc9df4": {
+      "classification": "exception",
+      "evidence_sufficient": true,
+      "disposition": "accept",
+      "rationale": "The source explicitly excludes Tiny creatures and creatures larger than the other creature from the shared-space Prone consequence."
+    },
+    "occ-ac078aa3647a18cb9634": {
+      "classification": "unsupported",
+      "evidence_sufficient": false,
+      "disposition": "reject",
+      "rationale": "The source grants no prone-ally exception to the voluntary end-of-move prohibition. This is a negative control from the superseded v0 design."
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "schema_version": "occupancy-semantic-candidates-v1",
+  "source_evidence_unit_ids": [
+    "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+  ],
+  "proposal_request_digest": "d462574cd8c2ba1471f803d7dec3d1b557b2c17e43f0864387cc92c139048bbd",
+  "candidates": [
+    {
+      "candidate_id": "occ-f3debc71f994db571810",
+      "kind": "restriction",
+      "subject": "creature movement",
+      "predicate": "cannot end move willingly in occupied space",
+      "value": "another creature's space",
+      "evidence_unit_ids": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "origin": "gpt-5.3-codex-proposal"
+    },
+    {
+      "candidate_id": "occ-8a4ffedfeb0cbb6603d5",
+      "kind": "consequence",
+      "subject": "creature ending turn in same space as another creature",
+      "predicate": "gains condition",
+      "value": "Prone",
+      "evidence_unit_ids": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "origin": "gpt-5.3-codex-proposal"
+    },
+    {
+      "candidate_id": "occ-7154bb6597ce44cc9df4",
+      "kind": "exception",
+      "subject": "prone on ending turn in same space",
+      "predicate": "does not apply if",
+      "value": "creature is Tiny or larger than the other creature",
+      "evidence_unit_ids": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "origin": "gpt-5.3-codex-proposal"
+    },
+    {
+      "candidate_id": "occ-ac078aa3647a18cb9634",
+      "kind": "exception",
+      "subject": "prone ally",
+      "predicate": "permits willingly ending a move in the ally’s occupied space",
+      "value": "allowed",
+      "evidence_unit_ids": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "origin": "legacy-v0-negative-control"
+    }
+  ]
+}
