@@ -15,6 +15,8 @@ Clause-family projection variants demonstrate a strong compositional lift (espec
 
 ## Addendum: PHB 2024 Occupancy vertical slice lock-in
 
+**Historical correction:** The ally-prone placement allowance below is unsupported by the official 2024 Basic Rules and SRD 5.2.1. For RLH-02 onward, use [occupancy_vertical_slice_v1.md](occupancy_vertical_slice_v1.md). The Prone language concerns a turn that somehow ends in a shared space; it does not permit willingly ending a move there.
+
 This addendum records the current lock-in for the first runtime legality slice documented in `occupancy_vertical_slice_v0.md`.
 
 ### Locked decisions
@@ -259,4 +261,3 @@ Option (2) would make pairing visible in reported metrics more often. Open for n
 - EvidenceUnits remain pristine and admissible throughout.
 - Clause-family projection remains retrieval-only and auditable.
 - Pairing edges are deterministic, local, and dependency-oriented — addressing the known failure of the current “neighbor” sidecar.
-

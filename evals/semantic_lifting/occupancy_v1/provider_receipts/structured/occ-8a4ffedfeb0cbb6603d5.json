@@ -1,0 +1,29 @@
+{
+  "contract": {
+    "model": "gpt-5.3-codex",
+    "state_digest": "1638c3d9c6450a62590d0d9b4dc6567d61cbed7057c2a8996ebf12ea3ded8c03",
+    "prompt_hash": "c9d77127e71846389c5e0cadfc6ae142e747026bc0b7b9337c0a70d68675c781",
+    "schema_hash": "72f457f4adb7dd539479731747b8876e103fcfec0568b6c15851964350893976"
+  },
+  "request_digest": "2df174410847f18a16b843142bd69d85d2921581079f133a0834ecf195a43bc2",
+  "provider_response_id": "resp_0305a7158c862ac4006ab75202d1ac87d1a9ae6d72cd292cc4",
+  "resolved_model": "gpt-5.3-codex",
+  "usage": {
+    "input_tokens": 684,
+    "input_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    "output_tokens": 107,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 791
+  },
+  "output": {
+    "classification": "consequence",
+    "evidence_sufficient": true,
+    "disposition": "review",
+    "rationale": "The evidence explicitly states a consequence: if a creature ends a turn in a space with another creature, it has the Prone condition. However, the candidate omits material exclusions present in the evidence ('unless you are Tiny or are of a larger size than the other creature'). Because those conditions are part of the rule as authored, the claim is only partially supported as worded."
+  }
+}

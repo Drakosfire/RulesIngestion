@@ -1,0 +1,29 @@
+{
+  "contract": {
+    "model": "gpt-5.3-codex",
+    "state_digest": "23babddb4e162763734cb38d2f0339300f50efed7500259e2c0047b7a6cbe178",
+    "prompt_hash": "c9d77127e71846389c5e0cadfc6ae142e747026bc0b7b9337c0a70d68675c781",
+    "schema_hash": "72f457f4adb7dd539479731747b8876e103fcfec0568b6c15851964350893976"
+  },
+  "request_digest": "44290f26d6bf34292d463057f406ef96c2e3f153e9fae6a9d482994a4f30891b",
+  "provider_response_id": "resp_0521e33a3354cee1006ab75296dc4887d18fe5217f4783d49a",
+  "resolved_model": "gpt-5.3-codex",
+  "usage": {
+    "input_tokens": 674,
+    "input_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    "output_tokens": 108,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 782
+  },
+  "output": {
+    "classification": "unsupported",
+    "evidence_sufficient": true,
+    "disposition": "reject",
+    "rationale": "The evidence states a general restriction: you can’t willingly end a move in a space occupied by another creature. It provides an outcome (become Prone) if you somehow end a turn in the same space, with size-based exceptions to becoming Prone. It does not create an exception permitting willingly ending movement in an ally’s space, and it does not distinguish allies from other creatures."
+  }
+}

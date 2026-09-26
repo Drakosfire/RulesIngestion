@@ -1,6 +1,6 @@
 # Occupancy Vertical Slice v0
 
-**Status:** Draft for review  
+**Status:** Superseded by [occupancy_vertical_slice_v1.md](occupancy_vertical_slice_v1.md). The ally-prone allowance in this historical draft is unsupported by the cited 2024 rule text.
 **Purpose:** Define the first exact runtime behavior to prove, the first atomic rule statement, the exact grounding question, and the minimal JSON schemas needed to evaluate a same-cell placement attempt.
 
 ---
@@ -542,4 +542,3 @@ Pass only if both fixture cases produce deterministic outputs:
 - stable `applied_rule_ids`
 - stable `violations`
 - stable trace branch reason
-

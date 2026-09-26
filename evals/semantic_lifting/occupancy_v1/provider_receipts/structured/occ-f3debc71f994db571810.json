@@ -1,0 +1,29 @@
+{
+  "contract": {
+    "model": "gpt-5.3-codex",
+    "state_digest": "4581bc3096df85dccf3af06ff1e2b3547c8c96e2bebbbf9758e0af431df7bb57",
+    "prompt_hash": "c9d77127e71846389c5e0cadfc6ae142e747026bc0b7b9337c0a70d68675c781",
+    "schema_hash": "72f457f4adb7dd539479731747b8876e103fcfec0568b6c15851964350893976"
+  },
+  "request_digest": "61b445482a37856a94ec3ca3c4dd294c93edf3d5068d8e81ec339467bdd1b65f",
+  "provider_response_id": "resp_0c9fae28f7b7e2d1006ab75199ff3c87d19328b67af5793cd7",
+  "resolved_model": "gpt-5.3-codex",
+  "usage": {
+    "input_tokens": 678,
+    "input_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    "output_tokens": 102,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 780
+  },
+  "output": {
+    "classification": "restriction",
+    "evidence_sufficient": true,
+    "disposition": "accept",
+    "rationale": "The evidence explicitly states: “You can’t willingly end a move in a space occupied by another creature.” This directly supports the candidate restriction as worded (creature movement cannot willingly end in another creature’s space). The additional sentence about becoming Prone if a turn ends in the same space is a separate consequence and does not limit or contradict the stated restriction."
+  }
+}
