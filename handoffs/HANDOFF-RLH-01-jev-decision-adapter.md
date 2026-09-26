@@ -1,14 +1,14 @@
 # HANDOFF — RLH-01 Jev decision adapter
 
 **Status:** ACTIVE — operator requested execution of the Phase H PR stack on 2026-09-25
-**Repository:** `Drakosfire/RulesIngestion`  
-**Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
-**Primary question:** Can RulesIngestion make one live Jev typed judgment through a provider-isolated adapter and persist a safe, replayable decision receipt?  
+**Repository:** `Drakosfire/RulesIngestion`
+**Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`
+**Primary question:** Can RulesIngestion make one live Jev typed judgment through a provider-isolated adapter and persist a safe, replayable decision receipt?
 **Unlocks:** RLH-02
 
 ## Re-anchor before coding
 
-Activation anchor: `RulesIngestion main@5379978db3939f9c6161d83bbbf50418d150922b`; central stack authority merged as DungeonOverMind PR #8 at `1a09159452935191583b7a147c695df724951f46`.
+Activation anchor: `RulesIngestion main@f201d93ad854073565e6c0f88245d8c460cb78e2` after prerequisite policy repair PR #7; central stack authority merged as DungeonOverMind PR #8 at `1a09159452935191583b7a147c695df724951f46`.
 
 Before implementation, refresh `main`, open PRs, current Jev SDK/API docs, and the canonical RulesIngestion design index. If another active PR owns the same provider/config files, stop and reconcile.
 
