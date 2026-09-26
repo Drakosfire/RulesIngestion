@@ -27,13 +27,13 @@ The independent Buddy product lane RLH-06→08 may continue in parallel after RL
 
 At activation:
 
-1. pin the exact accepted GenerationEngine GEJ-02 merge;
+1. pin the exact accepted GenerationEngine GEJ-02 head (or merge commit if merged);
 2. rebase onto current RulesIngestion `main`;
 3. re-census RLH-05/RLH-09 and any provider-related PRs;
 4. read the current occupancy semantic fixture and accepted RLH-01→04 artifacts;
 5. do not modify historical direct-provider receipts in place.
 
-Activation re-anchor (2026-09-26): RulesIngestion `main` remains `b4a06e8b28ac34d40add64978a11116c6a24cf9c`, the RLH-04 accepted anchor; this PR head contains only this handoff at `99897bda1e067a336888acbfd7d0cb6b906c6107`. GEJ-02 is accepted for review at unmerged PR #16 head `cf5bee24fa0a469a80c91c5e48992726eab8aa8d`, which includes the provider-neutral Choice-description amendment to GEJ-01. User instruction keeps these PRs unmerged; this branch will pin that exact GEJ-02 commit. RulesIngestion PRs #9-11 remain stacked handoff shells and RLH-05/#5 and RLH-09/#6 remain on hold. There is no active implementation-path collision. The checked-in occupancy source/evidence identity, human gold, candidate package, and direct-provider receipts remain immutable. This lease includes new GE-v2 receipts/report and focused tests under the named evaluation path; no historical receipt is rewritten.
+Activation re-anchor (2026-09-26, historical): RulesIngestion `main` was `b4a06e8b28ac34d40add64978a11116c6a24cf9c`, the RLH-04 accepted anchor; this PR shell then contained only this handoff at `99897bda1e067a336888acbfd7d0cb6b906c6107`. GEJ-02 was initially pinned at unmerged PR #16 head `cf5bee24fa0a469a80c91c5e48992726eab8aa8d`. The later accepted-head re-anchor below supersedes that pin. User instruction keeps GEJ PRs unmerged. RulesIngestion PRs #9-11 remain stacked handoff shells and RLH-05/#5 and RLH-09/#6 remain on hold. There is no active implementation-path collision. The checked-in occupancy source/evidence identity, human gold, candidate package, and direct-provider receipts remain immutable. This lease includes new GE-v2 receipts/report and focused tests under the named evaluation path; no historical receipt is rewritten.
 
 The old opt-in `scripts/run_jev_smoke.py` imports the direct adapter, so this lease also migrates that smoke to `GenerationClient.decide()` and removes its direct SDK tests. The remaining direct OpenAI consumers require `openai` 2.x while this slice pins GEJ-02; constrain the package to `<3` until RIGE-02/03 retire those paths. These are necessary boundary/compatibility adjustments, not additional experiment treatments.
 
@@ -186,3 +186,10 @@ Stop/split if:
 - The active proposal, structured adjudication, Jev adjudication, and opt-in Jev smoke now call GenerationEngine. Caller-owned prompts, schemas, question criteria, fixed candidate/human-gold package, and experiment comparison remain here. New GE-v2 receipts include exact execution commit, operation, request identity, GE observation, semantic digest, and receipt integrity digest. Existing direct-provider receipts are untouched.
 - Offline seam tests passed, including execution through the real GE structured boundary with a fake provider, preserved Choice criteria descriptions, immutable candidate/human-gold fixture, replay drift rejection, and telemetry-independent semantic digest. `uv lock --check`, narrow Ruff, and full `pytest -q` passed: 341 tests.
 - The required live occupancy pilot did not run. Automatic approval review rejected sending the checked-in occupancy evidence and prompts to external OpenAI/TypeSafe inference providers because it did not find explicit authorization for that payload. An explicit user authorization request is pending. No live GE-v2 provider receipts or comparison report exist yet. This is the smallest remaining blocker; acceptance token is **not** satisfied.
+
+## Accepted GEJ-02 re-anchor (2026-09-26)
+
+- GEJ-01 PR #15 head `87d49c20c84983267dd7044b350e68806e10383c` and GEJ-02 PR #16 head `55f6707de40c62893855b13e875730e804853d61` have both passed exact-head review and CI. They remain unmerged by user instruction. RulesIngestion `main` remains `b4a06e8b28ac34d40add64978a11116c6a24cf9c`; PR #8 is still based there, with no new implementation-path collision.
+- `pyproject.toml`, `uv.lock`, and `semantic_lifting/contracts.py` now pin and identify the accepted GEJ-02 head exactly. Tested implementation commit: `ad0d8f1099f009c3091b95c8d6768474e663cdb1`. The lock diff changes only the GE git revision. Import-only Ruff cleanup stays within the existing lease.
+- `uv lock --check` and `uv sync --locked` passed. Focused semantic-lifting tests: 12 passed. Full RulesIngestion suite: 341 passed. Focused Ruff on the changed Python surfaces and `git diff --check` passed. The cumulative PR diff remains limited to the RIGE-01 lease.
+- The live occupancy pilot still requires explicit payload authorization after the prior automatic approval rejection. No checked-in source evidence or prompts were transmitted in this re-anchor, and no live GE-v2 receipts were created. `RIGE_01_SEMANTIC_LIFTING_GENERATIONENGINE_ACCEPTED` remains unsatisfied; do not activate RIGE-02 yet.
