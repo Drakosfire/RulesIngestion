@@ -7,14 +7,14 @@ requires-python = ">=3.13"
 dependencies = [
     "addict>=2.4.0",
     "blake3>=0.3.3",
-    "openai>=1.0.0",
+    "openai>=2.14.0,<3",
     "pydantic>=2.0.0",
     "matplotlib>=3.10.8",
     "opencv-python>=4.13.0.90",
     "pymupdf>=1.26.7",
     "pytest>=9.0.2",
     "pyyaml>=6.0",
-    "typesafe-sdk>=0.7.1,<0.8",
+    "generationengine[openai,typesafe]",
     "dungeonmind",
     "rank-bm25>=0.2.2",
 ]
@@ -54,3 +54,4 @@ testpaths = ["tests"]
 
 [tool.uv.sources]
 dungeonmind = { git = "https://github.com/Drakosfire/DungeonMind.git", rev = "54a419f99057d96e0c4e7620d8bd8ccc6816fb62" }
+generationengine = { git = "https://github.com/Drakosfire/GenerationEngine.git", rev = "cf5bee24fa0a469a80c91c5e48992726eab8aa8d" }

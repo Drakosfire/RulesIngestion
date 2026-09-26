@@ -1,11 +1,11 @@
 # HANDOFF — RIGE-01 Semantic lifting through GenerationEngine
 
-**Status:** DEFERRED DRAFT — side quest shell  
-**Repository:** `Drakosfire/RulesIngestion`  
-**Creation anchor:** `main@b4a06e8b28ac34d40add64978a11116c6a24cf9c` (RLH-04 merged)  
-**Cross-repo authority:** `Drakosfire/DungeonOverMind/Docs/Plans/STACK-rules-ingestion-generationengine-sidequest.md`  
-**Primary question:** Can the current Phase-H semantic proposal and both adjudication treatments move from direct provider clients to GenerationEngine without moving experiment meaning into GenerationEngine or corrupting replay identity?  
-**Cross-repo predecessor:** `GEJ_02_TYPESAFE_JEV_PROVIDER_ACCEPTED`  
+**Status:** ACTIVE — implementation lease, pending acceptance
+**Repository:** `Drakosfire/RulesIngestion`
+**Creation anchor:** `main@b4a06e8b28ac34d40add64978a11116c6a24cf9c` (RLH-04 merged)
+**Cross-repo authority:** `Drakosfire/DungeonOverMind/Docs/Plans/STACK-rules-ingestion-generationengine-sidequest.md`
+**Primary question:** Can the current Phase-H semantic proposal and both adjudication treatments move from direct provider clients to GenerationEngine without moving experiment meaning into GenerationEngine or corrupting replay identity?
+**Cross-repo predecessor:** `GEJ_02_TYPESAFE_JEV_PROVIDER_ACCEPTED`
 **Unlocks:** RIGE-02
 
 ## Stack position
@@ -32,6 +32,10 @@ At activation:
 3. re-census RLH-05/RLH-09 and any provider-related PRs;
 4. read the current occupancy semantic fixture and accepted RLH-01→04 artifacts;
 5. do not modify historical direct-provider receipts in place.
+
+Activation re-anchor (2026-09-26): RulesIngestion `main` remains `b4a06e8b28ac34d40add64978a11116c6a24cf9c`, the RLH-04 accepted anchor; this PR head contains only this handoff at `99897bda1e067a336888acbfd7d0cb6b906c6107`. GEJ-02 is accepted for review at unmerged PR #16 head `cf5bee24fa0a469a80c91c5e48992726eab8aa8d`, which includes the provider-neutral Choice-description amendment to GEJ-01. User instruction keeps these PRs unmerged; this branch will pin that exact GEJ-02 commit. RulesIngestion PRs #9-11 remain stacked handoff shells and RLH-05/#5 and RLH-09/#6 remain on hold. There is no active implementation-path collision. The checked-in occupancy source/evidence identity, human gold, candidate package, and direct-provider receipts remain immutable. This lease includes new GE-v2 receipts/report and focused tests under the named evaluation path; no historical receipt is rewritten.
+
+The old opt-in `scripts/run_jev_smoke.py` imports the direct adapter, so this lease also migrates that smoke to `GenerationClient.decide()` and removes its direct SDK tests. The remaining direct OpenAI consumers require `openai` 2.x while this slice pins GEJ-02; constrain the package to `<3` until RIGE-02/03 retire those paths. These are necessary boundary/compatibility adjustments, not additional experiment treatments.
 
 ## Ownership boundary
 

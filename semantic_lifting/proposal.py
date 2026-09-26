@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from generationengine import GenerationClient, TextRequest
 
-from semantic_lifting.contracts import canonical_json, digest
+from semantic_lifting.contracts import canonical_json, digest, ge_contract, ge_receipt
 
 
 PROPOSAL_PROMPT = """Read only the supplied authored EvidenceUnit. Propose the smallest set of atomic rule claims that its text actually states. Separate a prohibition from any consequence or exclusion. Do not infer a prone-ally exception or cite model-generated text as evidence. Every candidate must cite the supplied EvidenceUnit ID. Normalize subject, predicate, and value as short strings. Do not publish any candidate as rule truth."""
@@ -29,33 +30,21 @@ class ProposalBatch(BaseModel):
 
 
 def proposal_contract(evidence_payload: list[dict], model: str) -> dict:
-    return {
-        "model": model,
-        "prompt_hash": digest(PROPOSAL_PROMPT),
-        "schema_hash": digest(ProposalBatch.model_json_schema()),
-        "evidence_digest": digest(evidence_payload),
-    }
+    return ge_contract(operation="generate_structured", provider="openai", model=model,
+                       input_digest=digest(evidence_payload), prompt_hash=digest(PROPOSAL_PROMPT),
+                       schema_hash=digest(ProposalBatch.model_json_schema()), max_output_tokens=1500)
 
 
-def propose(client: object, *, model: str, evidence_payload: list[dict]) -> dict:
-    """Return a redacted provider receipt; the caller validates its candidates."""
+async def propose(client: GenerationClient, *, model: str, evidence_payload: list[dict]) -> dict:
+    """Return a GE-backed experiment receipt; caller validates candidate evidence."""
     contract = proposal_contract(evidence_payload, model)
-    response = client.responses.parse(
-        model=model,
-        input=[
-            {"role": "developer", "content": PROPOSAL_PROMPT},
-            {"role": "user", "content": canonical_json(evidence_payload)},
-        ],
-        text_format=ProposalBatch,
+    result = await client.generate_structured(TextRequest(
+        model=model, provider="openai", temperature=None,
+        system_prompt=PROPOSAL_PROMPT, user_prompt=canonical_json(evidence_payload),
+        json_schema=ProposalBatch.model_json_schema(), schema_name="ProposalBatch",
         max_output_tokens=1500,
-    )
-    if response.status != "completed" or response.output_parsed is None:
-        raise ValueError("Proposal response incomplete or unparseable")
-    return {
-        "contract": contract,
-        "request_digest": digest(contract),
-        "provider_response_id": response.id,
-        "resolved_model": response.model,
-        "usage": response.usage.model_dump(mode="json") if response.usage else None,
-        "output": response.output_parsed.model_dump(mode="json"),
-    }
+    ))
+    if result.parsed is None:
+        raise ValueError("GE proposal response has no parsed output")
+    output = ProposalBatch.model_validate(result.parsed).model_dump(mode="json")
+    return ge_receipt(contract, result.observation, output)

@@ -1,16 +1,16 @@
-"""Stable request and receipt contracts for typed Jev decisions."""
+"""Stable RulesIngestion experiment digests and GE execution receipts."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from hashlib import sha256
 import json
-from typing import Any, Literal
+from typing import Any
+
+from generationengine import InferenceObservation
 
 
-ADAPTER_VERSION = "jev-adapter-v1"
-RECEIPT_SCHEMA_VERSION = "jev-decision-receipt-v1"
-QuestionKind = Literal["choice", "score", "noul"]
+GENERATIONENGINE_COMMIT = "cf5bee24fa0a469a80c91c5e48992726eab8aa8d"
+GE_RECEIPT_SCHEMA_VERSION = "semantic-ge-receipt-v2"
 
 
 def canonical_json(value: Any) -> str:
@@ -22,67 +22,58 @@ def digest(value: Any) -> str:
     return sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
-@dataclass(frozen=True)
-class DecisionQuestion:
-    kind: QuestionKind
-    instructions: str
-    criteria: dict[str, str | None] | tuple[str, ...] | None = None
-
-    def as_payload(self) -> dict[str, Any]:
-        if not self.instructions.strip():
-            raise ValueError("A question needs instructions")
-        if self.kind == "choice":
-            if not isinstance(self.criteria, dict) or len(self.criteria) < 2:
-                raise ValueError("A choice needs at least two criteria")
-        elif self.kind == "score":
-            if not isinstance(self.criteria, tuple) or not self.criteria:
-                raise ValueError("A score needs an ordered rubric")
-        elif self.kind == "noul":
-            if self.criteria is not None:
-                raise ValueError("Noul criteria are not supported by this bounded adapter")
-        else:
-            raise ValueError("Unknown question kind")
-        payload: dict[str, Any] = {"type": self.kind, "instructions": self.instructions}
-        if self.criteria is not None:
-            payload["criteria"] = self.criteria
-        return payload
+def ge_contract(*, operation: str, provider: str, model: str, input_digest: str,
+                prompt_hash: str | None = None, schema_hash: str | None = None,
+                questions_hash: str | None = None, max_output_tokens: int | None = None) -> dict[str, Any]:
+    """Caller-owned replay identity; transport telemetry never changes it."""
+    return {
+        "execution_contract_version": GE_RECEIPT_SCHEMA_VERSION,
+        "generationengine_commit": GENERATIONENGINE_COMMIT,
+        "operation": operation,
+        "requested_provider": provider,
+        "requested_model": model,
+        "requested_profile": None,
+        "input_digest": input_digest,
+        "prompt_hash": prompt_hash,
+        "schema_hash": schema_hash,
+        "questions_hash": questions_hash,
+        "max_output_tokens": max_output_tokens,
+    }
 
 
-@dataclass(frozen=True)
-class DecisionRequest:
-    state: str | dict[str, Any] | list[Any]
-    questions: dict[str, DecisionQuestion]
-    model: str = "typesafe-ai/jev"
+def ge_receipt(contract: dict[str, Any], observation: InferenceObservation,
+               output: dict[str, Any]) -> dict[str, Any]:
+    """Persist GE call truth while excluding volatile telemetry from semantic identity."""
+    if contract["generationengine_commit"] != GENERATIONENGINE_COMMIT:
+        raise ValueError("GenerationEngine contract commit mismatch")
+    receipt = {
+        "schema_version": GE_RECEIPT_SCHEMA_VERSION,
+        "contract": contract,
+        "request_digest": digest(contract),
+        "generationengine_commit": GENERATIONENGINE_COMMIT,
+        "operation": contract["operation"],
+        "observation": observation.model_dump(mode="json"),
+        "output": output,
+        "semantic_digest": digest({"contract": contract, "output": output}),
+    }
+    receipt["receipt_digest"] = digest(receipt)
+    return receipt
 
-    def question_payload(self) -> dict[str, dict[str, Any]]:
-        if not self.questions or not all(name.strip() for name in self.questions):
-            raise ValueError("A decision needs named questions")
-        if not self.model.strip():
-            raise ValueError("A decision needs a model")
-        return {name: question.as_payload() for name, question in sorted(self.questions.items())}
 
-
-@dataclass(frozen=True)
-class DecisionReceipt:
-    input_digest: str
-    questions_digest: str
-    requested_model: str
-    resolved_model: str
-    answers: dict[str, dict[str, Any]]
-    usage: dict[str, int | None]
-    decision_digest: str
-    adapter_version: str = ADAPTER_VERSION
-    schema_version: str = RECEIPT_SCHEMA_VERSION
-
-    def as_payload(self) -> dict[str, Any]:
-        return {
-            "adapter_version": self.adapter_version,
-            "schema_version": self.schema_version,
-            "input_digest": self.input_digest,
-            "questions_digest": self.questions_digest,
-            "requested_model": self.requested_model,
-            "resolved_model": self.resolved_model,
-            "answers": self.answers,
-            "usage": self.usage,
-            "decision_digest": self.decision_digest,
-        }
+def verify_ge_receipt(receipt: dict[str, Any], contract: dict[str, Any]) -> None:
+    if (receipt.get("schema_version") != GE_RECEIPT_SCHEMA_VERSION
+            or receipt.get("contract") != contract
+            or receipt.get("request_digest") != digest(contract)
+            or receipt.get("generationengine_commit") != GENERATIONENGINE_COMMIT
+            or receipt.get("operation") != contract["operation"]
+            or not isinstance(receipt.get("output"), dict)
+            or receipt.get("semantic_digest") != digest({"contract": contract,
+                                                           "output": receipt.get("output")})
+            or receipt.get("receipt_digest") != digest({k: v for k, v in receipt.items()
+                                                       if k != "receipt_digest"})):
+        raise ValueError("GenerationEngine receipt contract drift")
+    observed = receipt.get("observation")
+    if not isinstance(observed, dict) or observed.get("provider") != contract["requested_provider"]:
+        raise ValueError("GenerationEngine receipt provider drift")
+    if observed.get("requested_model") != contract["requested_model"]:
+        raise ValueError("GenerationEngine receipt model drift")
