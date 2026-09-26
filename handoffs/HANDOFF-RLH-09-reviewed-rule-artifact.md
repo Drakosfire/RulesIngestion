@@ -1,9 +1,9 @@
 # HANDOFF — RLH-09 reviewed rule artifact
 
-**Status:** DEFERRED DRAFT  
+**Status:** ACTIVE — implementation candidate, pending review  
 **Repository:** `Drakosfire/RulesIngestion`  
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
-**Predecessor:** `RLH_05_GRAPH_REASONING_BENCHMARK_ACCEPTED`  
+**Predecessor:** RLH-05 no-promotion substrate audit; accepted RLH-02/03 occupancy semantics  
 **Primary question:** Can the occupancy evidence/semantic package become one small reviewed formal rule artifact suitable for a deterministic consumer while preserving exact source traceability?  
 **Unlocks:** RLH-10
 
@@ -24,10 +24,12 @@ Medium ordinary creature
 attempts end_move_in_cell
 occupied by Medium ordinary creature
 → reject by default
-→ allow only under the explicit ally-prone condition
+→ reject regardless of ally or Prone state; no sourced movement exception
 ```
 
 Do not generalize to the entire movement system.
+
+The historical ally-prone exception is superseded by the user's sourced-rule correction and the checked-in SRD 5.2.1 human gold. The source's Tiny/larger-than-other-creature clause concerns becoming Prone after somehow ending a turn in shared space; it does not permit willingly ending a move there. This artifact evaluates only the latter restriction. RLH-05 found no promotable graph value on the available fixture, so no graph closure enters the compiler.
 
 ## Artifact contract
 
@@ -39,7 +41,7 @@ Define deterministic versioned JSON containing at least:
 - reviewed semantic statement;
 - typed required inputs;
 - typed condition/decision representation;
-- explicit bounded exception branch;
+- explicit empty exception set for this restriction;
 - exact EvidenceUnit refs and DungeonMind knowledge refs where available;
 - compiler/run identity;
 - review disposition/approval metadata;
