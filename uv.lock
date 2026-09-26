@@ -267,6 +267,14 @@ wheels = [
 ]
 
 [[package]]
+name = "dungeonmind"
+version = "0.1.0"
+source = { git = "https://github.com/Drakosfire/DungeonMind.git?rev=54a419f99057d96e0c4e7620d8bd8ccc6816fb62#54a419f99057d96e0c4e7620d8bd8ccc6816fb62" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[[package]]
 name = "easydict"
 version = "1.13"
 source = { registry = "https://pypi.org/simple" }
@@ -1407,6 +1415,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "addict" },
     { name = "blake3" },
+    { name = "dungeonmind" },
     { name = "matplotlib" },
     { name = "openai" },
     { name = "opencv-python" },
@@ -1447,6 +1456,7 @@ retrieval-lab = [
 requires-dist = [
     { name = "addict", specifier = ">=2.4.0" },
     { name = "blake3", specifier = ">=0.3.3" },
+    { name = "dungeonmind", git = "https://github.com/Drakosfire/DungeonMind.git?rev=54a419f99057d96e0c4e7620d8bd8ccc6816fb62" },
     { name = "easydict", marker = "extra == 'deepseek-ocr2'", specifier = ">=1.13" },
     { name = "einops", marker = "extra == 'deepseek-ocr2'", specifier = ">=0.8.2" },
     { name = "einops", marker = "extra == 'retrieval-lab'", specifier = ">=0.7.0" },
