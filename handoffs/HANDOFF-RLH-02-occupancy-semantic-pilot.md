@@ -1,6 +1,6 @@
 # HANDOFF — RLH-02 occupancy semantic pilot
 
-**Status:** ACTIVE — operator approved correction to the sourced 2024 rule
+**Status:** ACCEPTED — sourced 2024 occupancy semantic pilot complete
 **Repository:** `Drakosfire/RulesIngestion`
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`
 **Predecessor:** `RLH_01_JEV_DECISION_ADAPTER_ACCEPTED`
@@ -122,6 +122,10 @@ Acceptance token:
 ```text
 RLH_02_OCCUPANCY_SEMANTIC_PILOT_ACCEPTED
 ```
+
+## Acceptance witness
+
+`evals/semantic_lifting/occupancy_v1/experiment_summary.json` records all four human-gold decisions, four structured-output decisions, and four live Jev decisions. Both treatments match all four gold dispositions, with one review each. The field-level disagreements are retained rather than hidden; each accepted claim resolves to the exact Stage B EvidenceUnit in the source fixture. The stable run digest is `bf81d18d7b98bb2a5992d070f82355654cd2bfb7d0d0af39aa52cd1866dd6238`. Offline replay reproduces that digest and the full test suite passes (346 tests).
 
 ## Stop conditions
 

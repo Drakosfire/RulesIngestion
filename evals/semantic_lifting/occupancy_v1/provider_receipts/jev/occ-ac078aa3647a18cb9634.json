@@ -1,0 +1,57 @@
+{
+  "contract": {
+    "model": "typesafe-ai/jev",
+    "state_digest": "23babddb4e162763734cb38d2f0339300f50efed7500259e2c0047b7a6cbe178",
+    "questions_digest": "466fdc9f0e0151fa801789566bdbd146e7c0295e4a98d77363be9b6188fd4b95"
+  },
+  "request_digest": "07ba11c1f69de6f9c97f128381452f66546cc5385eba90bd08315d0a78cb5860",
+  "provider_receipt": {
+    "adapter_version": "jev-adapter-v1",
+    "schema_version": "jev-decision-receipt-v1",
+    "input_digest": "23babddb4e162763734cb38d2f0339300f50efed7500259e2c0047b7a6cbe178",
+    "questions_digest": "466fdc9f0e0151fa801789566bdbd146e7c0295e4a98d77363be9b6188fd4b95",
+    "requested_model": "typesafe-ai/jev",
+    "resolved_model": "typesafe-ai/jev",
+    "answers": {
+      "classification": {
+        "type": "choice",
+        "choice": "restriction",
+        "confidence": 0.34,
+        "probabilities": {
+          "definition": 0.0,
+          "unsupported": 0.37,
+          "exception": 0.14,
+          "example": 0.0,
+          "consequence": 0.03,
+          "restriction": 0.46
+        }
+      },
+      "disposition": {
+        "type": "choice",
+        "choice": "reject",
+        "confidence": 0.99,
+        "probabilities": {
+          "accept": 0.0,
+          "review": 0.0,
+          "reject": 1.0,
+          "unresolved": 0.0
+        }
+      },
+      "evidence_sufficient": {
+        "type": "noul",
+        "noul": 0.02
+      }
+    },
+    "usage": {
+      "input_tokens": 1115,
+      "output_tokens": 132
+    },
+    "decision_digest": "85169f5b0b937d4744677e316723e99228b3eeae24b9957b2df920de013dbfb8"
+  },
+  "output": {
+    "classification": "restriction",
+    "evidence_sufficient": false,
+    "evidence_sufficient_probability": 0.02,
+    "disposition": "reject"
+  }
+}

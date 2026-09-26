@@ -1,0 +1,179 @@
+{
+  "schema_version": "occupancy-semantic-pilot-summary-v1",
+  "candidate_package_digest": "502bb5f95b67b0ce4f629d798e31f26a8254e37f7f90caa0f1d376270b450a5a",
+  "human_gold_digest": "29ca6059f29bdc0bc436b6a89ef91abd87a396b5824b2ada27fdda762a5f7cd1",
+  "human_gold_review_or_unresolved": 1,
+  "jev_noul_boolean_threshold": 0.5,
+  "proposal_request_digest": "d462574cd8c2ba1471f803d7dec3d1b557b2c17e43f0864387cc92c139048bbd",
+  "source_evidence_unit_ids": [
+    "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+  ],
+  "candidate_evidence_refs": {
+    "occ-f3debc71f994db571810": [
+      "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+    ],
+    "occ-8a4ffedfeb0cbb6603d5": [
+      "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+    ],
+    "occ-7154bb6597ce44cc9df4": [
+      "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+    ],
+    "occ-ac078aa3647a18cb9634": [
+      "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+    ]
+  },
+  "proposal_model": "gpt-5.3-codex",
+  "provider_routes": {
+    "structured_llm": "openai-responses",
+    "jev": "vercel-ai-gateway/typesafe"
+  },
+  "treatment_models": {
+    "structured_llm": [
+      "gpt-5.3-codex"
+    ],
+    "jev": [
+      "typesafe-ai/jev"
+    ]
+  },
+  "per_decision": [
+    {
+      "candidate_id": "occ-f3debc71f994db571810",
+      "human_gold": "accept",
+      "treatments": {
+        "jev": {
+          "disposition": "accept",
+          "correct": true
+        },
+        "structured_llm": {
+          "disposition": "accept",
+          "correct": true
+        }
+      }
+    },
+    {
+      "candidate_id": "occ-8a4ffedfeb0cbb6603d5",
+      "human_gold": "review",
+      "treatments": {
+        "jev": {
+          "disposition": "review",
+          "correct": true
+        },
+        "structured_llm": {
+          "disposition": "review",
+          "correct": true
+        }
+      }
+    },
+    {
+      "candidate_id": "occ-7154bb6597ce44cc9df4",
+      "human_gold": "accept",
+      "treatments": {
+        "jev": {
+          "disposition": "accept",
+          "correct": true
+        },
+        "structured_llm": {
+          "disposition": "accept",
+          "correct": true
+        }
+      }
+    },
+    {
+      "candidate_id": "occ-ac078aa3647a18cb9634",
+      "human_gold": "reject",
+      "treatments": {
+        "jev": {
+          "disposition": "reject",
+          "correct": true
+        },
+        "structured_llm": {
+          "disposition": "reject",
+          "correct": true
+        }
+      }
+    }
+  ],
+  "rates": {
+    "jev": {
+      "correct": 4,
+      "total": 4,
+      "review_or_unresolved": 1
+    },
+    "structured_llm": {
+      "correct": 4,
+      "total": 4,
+      "review_or_unresolved": 1
+    }
+  },
+  "field_correctness": {
+    "structured_llm": {
+      "classification": 4,
+      "evidence_sufficient": 2,
+      "disposition": 4
+    },
+    "jev": {
+      "classification": 3,
+      "evidence_sufficient": 4,
+      "disposition": 4
+    }
+  },
+  "run_digest": "bf81d18d7b98bb2a5992d070f82355654cd2bfb7d0d0af39aa52cd1866dd6238",
+  "disagreements": [
+    {
+      "candidate_id": "occ-8a4ffedfeb0cbb6603d5",
+      "human_gold": {
+        "classification": "consequence",
+        "evidence_sufficient": false,
+        "disposition": "review",
+        "rationale": "The Prone consequence is real but this candidate omits the source's Tiny and larger-than-other-creature exclusions. It cannot be accepted as an unconditional claim."
+      },
+      "structured_llm": {
+        "classification": "consequence",
+        "evidence_sufficient": true,
+        "disposition": "review",
+        "rationale": "The evidence explicitly states a consequence: if a creature ends a turn in a space with another creature, it has the Prone condition. However, the candidate omits material exclusions present in the evidence ('unless you are Tiny or are of a larger size than the other creature'). Because those conditions are part of the rule as authored, the claim is only partially supported as worded."
+      },
+      "jev": {
+        "classification": "consequence",
+        "evidence_sufficient": false,
+        "evidence_sufficient_probability": 0.27,
+        "disposition": "review"
+      }
+    },
+    {
+      "candidate_id": "occ-ac078aa3647a18cb9634",
+      "human_gold": {
+        "classification": "unsupported",
+        "evidence_sufficient": false,
+        "disposition": "reject",
+        "rationale": "The source grants no prone-ally exception to the voluntary end-of-move prohibition. This is a negative control from the superseded v0 design."
+      },
+      "structured_llm": {
+        "classification": "unsupported",
+        "evidence_sufficient": true,
+        "disposition": "reject",
+        "rationale": "The evidence states a general restriction: you can’t willingly end a move in a space occupied by another creature. It provides an outcome (become Prone) if you somehow end a turn in the same space, with size-based exceptions to becoming Prone. It does not create an exception permitting willingly ending movement in an ally’s space, and it does not distinguish allies from other creatures."
+      },
+      "jev": {
+        "classification": "restriction",
+        "evidence_sufficient": false,
+        "evidence_sufficient_probability": 0.02,
+        "disposition": "reject"
+      }
+    }
+  ],
+  "provider_receipt_digests": {
+    "structured_llm": {
+      "occ-f3debc71f994db571810": "67324149339fb51bf6a2c300a41366e217e72e9888d524be6c3ac1c7642b5dab",
+      "occ-8a4ffedfeb0cbb6603d5": "45e7db4526eaaea0e03a802d9c7ea903e6164a7e74411fe590546bf255a950df",
+      "occ-7154bb6597ce44cc9df4": "87928f43b534ff92b30b93f468d083ac88371f2514221ee1ced1c6dc2a106096",
+      "occ-ac078aa3647a18cb9634": "ddceae80011bccb537fff787ba5a53e65ddf2da52a3c7582fccee4da76b0539d"
+    },
+    "jev": {
+      "occ-f3debc71f994db571810": "9e3d7fee69b7d749474b35e5ff4098e282ef459ebbd40d4a9bda30f662db8516",
+      "occ-8a4ffedfeb0cbb6603d5": "494454082a52763f3a46992f79d71c718b3161da57576869345d90518934a19b",
+      "occ-7154bb6597ce44cc9df4": "f7093961f9b4ebbcd1a3542d9fb4875f464dca915ba86b8bac17d302b03b6f4e",
+      "occ-ac078aa3647a18cb9634": "7046e5fc38198207e5eb5198e3ab925cc9e32727120f21280a321917a3827b68"
+    }
+  }
+}
