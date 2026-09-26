@@ -1,0 +1,447 @@
+{
+  "schema_version": "rlh-04-retrieval-comparison-v1",
+  "dungeonmind_commit": "54a419f99057d96e0c4e7620d8bd8ccc6816fb62",
+  "space_id": "space:rules-occupancy-srd-5-2-1-v1",
+  "revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+  "semantic_profile": "rules.occupancy@1",
+  "benchmark_sha256": "9cf7b37a2509f001681073639868e020188e5f01ab50b58a127ba7d9bc283101",
+  "corpus_fingerprint": "1fe3ec35f2f7a8efc46ff6a55991688df5f1e4f334820464137bc418b7659b3e",
+  "run_id": "60446e54c52e4208bef5c0e7ef644fb2b28e4e604c8d5c3fea511099b258b13c",
+  "top_k": 3,
+  "benchmark_contract_valid": true,
+  "benchmark_alignment": {
+    "queries_total": 6,
+    "queries_with_contract_gold_ids": 5,
+    "queries_with_missing_gold_ids": 0,
+    "queries_with_no_surviving_gold_ids": 0,
+    "missing_gold_ids_total": 0,
+    "missing_gold_ids_unique": [],
+    "per_query": [
+      {
+        "query_id": "ground_occ_2024_001",
+        "contract_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "present_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "missing_gold_ids": [],
+        "contract_gold_count": 1,
+        "present_gold_count": 1,
+        "missing_gold_count": 0
+      },
+      {
+        "query_id": "ground_occ_2024_002",
+        "contract_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "present_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "missing_gold_ids": [],
+        "contract_gold_count": 1,
+        "present_gold_count": 1,
+        "missing_gold_count": 0
+      },
+      {
+        "query_id": "ground_occ_2024_003",
+        "contract_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "present_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "missing_gold_ids": [],
+        "contract_gold_count": 1,
+        "present_gold_count": 1,
+        "missing_gold_count": 0
+      },
+      {
+        "query_id": "ground_occ_2024_004",
+        "contract_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "present_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "missing_gold_ids": [],
+        "contract_gold_count": 1,
+        "present_gold_count": 1,
+        "missing_gold_count": 0
+      },
+      {
+        "query_id": "ground_occ_2024_005",
+        "contract_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "present_gold_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "missing_gold_ids": [],
+        "contract_gold_count": 1,
+        "present_gold_count": 1,
+        "missing_gold_count": 0
+      }
+    ]
+  },
+  "repeated_run_deterministic": true,
+  "citation_mapping_exact": true,
+  "metrics": {
+    "dungeonmind": {
+      "queries": 6,
+      "grounding_queries": 5,
+      "required_full_set_hit_at_k": 5,
+      "mrr": 1.0,
+      "no_result_correct": 1,
+      "no_result_total": 1
+    },
+    "baseline_bm25": {
+      "queries": 6,
+      "grounding_queries": 5,
+      "required_full_set_hit_at_k": 5,
+      "mrr": 1.0,
+      "no_result_correct": 0,
+      "no_result_total": 1
+    }
+  },
+  "product_ready": true,
+  "comparison_limit": "one exact SRD EvidenceUnit; baseline is RulesIngestion BM25, not the unavailable full PHB dense/hybrid corpus",
+  "rows": [
+    {
+      "query_id": "ground_occ_2024_001",
+      "question": "What source text prohibits willingly ending a move in another creature's space?",
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "dungeonmind": {
+        "query": "What source text prohibits willingly ending a move in another creature's space?",
+        "revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "hits": [
+          {
+            "rank": 1,
+            "entity_id": "ent:9becbe0cc0dff0c33b0ad97b5f789749",
+            "assertion_id": "asrt:240f46b55fa9fb12b9ee1f8bed0a1472",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 71,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "d725f7b5d87aebafe7fcadd39f56e54dcd2726e2855f06a4f07e4eced6c4a73a",
+            "evidence_digest": "1b8a0f97de2239c7b370c33034fb23747f33cd6c4151c7d5f41f193283f1676c",
+            "admission": "admitted"
+          },
+          {
+            "rank": 2,
+            "entity_id": "ent:5898f39dfb1870aff685311644b387b3",
+            "assertion_id": "asrt:b167df5030e8b90787dac97b0b60b204",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 41,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "d725f7b5d87aebafe7fcadd39f56e54dcd2726e2855f06a4f07e4eced6c4a73a",
+            "evidence_digest": "616a8a1148125d69ddc665196ef4b414c73d035e336883ca80a9a3c0985064e7",
+            "admission": "admitted"
+          }
+        ],
+        "completeness": "complete",
+        "failure_reason": null
+      },
+      "baseline": {
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "scores": [
+          -2.712324857711792
+        ],
+        "method": "retrieval_lab.sparse_retrieval.BM25Okapi"
+      }
+    },
+    {
+      "query_id": "ground_occ_2024_002",
+      "question": "What source text describes the Prone consequence if a turn somehow ends in a shared space, and its size exclusions?",
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "dungeonmind": {
+        "query": "What source text describes the Prone consequence if a turn somehow ends in a shared space, and its size exclusions?",
+        "revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "hits": [
+          {
+            "rank": 1,
+            "entity_id": "ent:5898f39dfb1870aff685311644b387b3",
+            "assertion_id": "asrt:b167df5030e8b90787dac97b0b60b204",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 61,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "759d31b1d5ea78654cc9578be9f7cbe206f5a38e927404aeb8f3ca21f7926014",
+            "evidence_digest": "616a8a1148125d69ddc665196ef4b414c73d035e336883ca80a9a3c0985064e7",
+            "admission": "admitted"
+          },
+          {
+            "rank": 2,
+            "entity_id": "ent:9becbe0cc0dff0c33b0ad97b5f789749",
+            "assertion_id": "asrt:240f46b55fa9fb12b9ee1f8bed0a1472",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 21,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "759d31b1d5ea78654cc9578be9f7cbe206f5a38e927404aeb8f3ca21f7926014",
+            "evidence_digest": "1b8a0f97de2239c7b370c33034fb23747f33cd6c4151c7d5f41f193283f1676c",
+            "admission": "admitted"
+          }
+        ],
+        "completeness": "complete",
+        "failure_reason": null
+      },
+      "baseline": {
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "scores": [
+          -3.606707811355591
+        ],
+        "method": "retrieval_lab.sparse_retrieval.BM25Okapi"
+      }
+    },
+    {
+      "query_id": "ground_occ_2024_003",
+      "question": "Can I finish moving in another creature's square?",
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "dungeonmind": {
+        "query": "Can I finish moving in another creature's square?",
+        "revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "hits": [
+          {
+            "rank": 1,
+            "entity_id": "ent:9becbe0cc0dff0c33b0ad97b5f789749",
+            "assertion_id": "asrt:240f46b55fa9fb12b9ee1f8bed0a1472",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 41,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "3d2e122644b9edc4754d416005a7d6823c5b523f271c8f474c5ef7ebe89aab6d",
+            "evidence_digest": "1b8a0f97de2239c7b370c33034fb23747f33cd6c4151c7d5f41f193283f1676c",
+            "admission": "admitted"
+          },
+          {
+            "rank": 2,
+            "entity_id": "ent:5898f39dfb1870aff685311644b387b3",
+            "assertion_id": "asrt:b167df5030e8b90787dac97b0b60b204",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 21,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "3d2e122644b9edc4754d416005a7d6823c5b523f271c8f474c5ef7ebe89aab6d",
+            "evidence_digest": "616a8a1148125d69ddc665196ef4b414c73d035e336883ca80a9a3c0985064e7",
+            "admission": "admitted"
+          }
+        ],
+        "completeness": "complete",
+        "failure_reason": null
+      },
+      "baseline": {
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "scores": [
+          -1.7917842864990234
+        ],
+        "method": "retrieval_lab.sparse_retrieval.BM25Okapi"
+      }
+    },
+    {
+      "query_id": "ground_occ_2024_004",
+      "question": "Does a Tiny creature avoid becoming Prone in shared space?",
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "dungeonmind": {
+        "query": "Does a Tiny creature avoid becoming Prone in shared space?",
+        "revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "hits": [
+          {
+            "rank": 1,
+            "entity_id": "ent:5898f39dfb1870aff685311644b387b3",
+            "assertion_id": "asrt:b167df5030e8b90787dac97b0b60b204",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 61,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "4097e6219d09353776598c48f6ae25902dd33221ea7b75ef592a7f345b261b27",
+            "evidence_digest": "616a8a1148125d69ddc665196ef4b414c73d035e336883ca80a9a3c0985064e7",
+            "admission": "admitted"
+          },
+          {
+            "rank": 2,
+            "entity_id": "ent:9becbe0cc0dff0c33b0ad97b5f789749",
+            "assertion_id": "asrt:240f46b55fa9fb12b9ee1f8bed0a1472",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 31,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "4097e6219d09353776598c48f6ae25902dd33221ea7b75ef592a7f345b261b27",
+            "evidence_digest": "1b8a0f97de2239c7b370c33034fb23747f33cd6c4151c7d5f41f193283f1676c",
+            "admission": "admitted"
+          }
+        ],
+        "completeness": "complete",
+        "failure_reason": null
+      },
+      "baseline": {
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "scores": [
+          -2.319963216781616
+        ],
+        "method": "retrieval_lab.sparse_retrieval.BM25Okapi"
+      }
+    },
+    {
+      "query_id": "ground_occ_2024_005",
+      "question": "Does a prone ally let me willingly end a move in its space?",
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "dungeonmind": {
+        "query": "Does a prone ally let me willingly end a move in its space?",
+        "revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "hits": [
+          {
+            "rank": 1,
+            "entity_id": "ent:9becbe0cc0dff0c33b0ad97b5f789749",
+            "assertion_id": "asrt:240f46b55fa9fb12b9ee1f8bed0a1472",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 51,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "e1e870825bcfc936f46b8a3e208616accd8db30fd0f3ae9c1aa7746973f204f5",
+            "evidence_digest": "1b8a0f97de2239c7b370c33034fb23747f33cd6c4151c7d5f41f193283f1676c",
+            "admission": "admitted"
+          },
+          {
+            "rank": 2,
+            "entity_id": "ent:5898f39dfb1870aff685311644b387b3",
+            "assertion_id": "asrt:b167df5030e8b90787dac97b0b60b204",
+            "evidence_ref_id": "ev:rulesingestion:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "evidence_unit_id": "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d",
+            "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+            "source_uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+            "search_score": 41,
+            "search_match_kinds": [
+              "lexical"
+            ],
+            "search_digest": "e1e870825bcfc936f46b8a3e208616accd8db30fd0f3ae9c1aa7746973f204f5",
+            "evidence_digest": "616a8a1148125d69ddc665196ef4b414c73d035e336883ca80a9a3c0985064e7",
+            "admission": "admitted"
+          }
+        ],
+        "completeness": "complete",
+        "failure_reason": null
+      },
+      "baseline": {
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "scores": [
+          -3.0574018955230713
+        ],
+        "method": "retrieval_lab.sparse_retrieval.BM25Okapi"
+      }
+    },
+    {
+      "query_id": "ground_occ_2024_006",
+      "question": "zeppelin transmutation catalyst",
+      "required_gold": [],
+      "dungeonmind": {
+        "query": "zeppelin transmutation catalyst",
+        "revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+        "mapped_evidence_unit_ids": [],
+        "hits": [],
+        "completeness": "complete",
+        "failure_reason": null
+      },
+      "baseline": {
+        "mapped_evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ],
+        "scores": [
+          0.0
+        ],
+        "method": "retrieval_lab.sparse_retrieval.BM25Okapi"
+      }
+    }
+  ],
+  "run_digest": "7d9c7460bc0a81d08889626e3ea99f461ab02b0f78f66fbebc86508d53e3dbd4",
+  "latency_ms": {
+    "ground_occ_2024_001": 10.428,
+    "ground_occ_2024_002": 7.942,
+    "ground_occ_2024_003": 7.535,
+    "ground_occ_2024_004": 9.794,
+    "ground_occ_2024_005": 5.852,
+    "ground_occ_2024_006": 0.081
+  }
+}

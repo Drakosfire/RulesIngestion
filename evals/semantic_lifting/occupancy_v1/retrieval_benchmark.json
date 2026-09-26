@@ -1,0 +1,198 @@
+{
+  "metadata": {
+    "schema_version": "retrieval_benchmark_v1",
+    "source": "SRD 5.2.1 Stage B occupancy fixture",
+    "document_id": "srd-5.2.1-p14",
+    "substrate_version": "srd-5.2.1-minimal-stageb-v1",
+    "query_count": 6,
+    "notes": "One exact EvidenceUnit; first two are canonical grounding questions. The prone-ally query needs evidence for a negative answer. Off-topic query expects no evidence."
+  },
+  "queries": [
+    {
+      "id": "ground_occ_2024_001",
+      "tier": "T2",
+      "question_type": "grounding",
+      "question": "What source text prohibits willingly ending a move in another creature's space?",
+      "expected_answer_summary": "",
+      "source_page": 14,
+      "gold_unit_ids": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "supporting_gold": [],
+      "_required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "_supporting_gold": [],
+      "_mode": "single_cite",
+      "gold_locations": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": {
+          "page": 14,
+          "structural_path": [
+            "Moving around Other Creatures"
+          ],
+          "source_unit_ids": [
+            "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+          ]
+        }
+      },
+      "required_gold_rationale": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": "Exact sourced occupancy paragraph"
+      }
+    },
+    {
+      "id": "ground_occ_2024_002",
+      "tier": "T2",
+      "question_type": "grounding",
+      "question": "What source text describes the Prone consequence if a turn somehow ends in a shared space, and its size exclusions?",
+      "expected_answer_summary": "",
+      "source_page": 14,
+      "gold_unit_ids": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "supporting_gold": [],
+      "_required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "_supporting_gold": [],
+      "_mode": "single_cite",
+      "gold_locations": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": {
+          "page": 14,
+          "structural_path": [
+            "Moving around Other Creatures"
+          ],
+          "source_unit_ids": [
+            "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+          ]
+        }
+      },
+      "required_gold_rationale": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": "Exact sourced occupancy paragraph"
+      }
+    },
+    {
+      "id": "ground_occ_2024_003",
+      "tier": "T2",
+      "question_type": "grounding",
+      "question": "Can I finish moving in another creature's square?",
+      "expected_answer_summary": "",
+      "source_page": 14,
+      "gold_unit_ids": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "supporting_gold": [],
+      "_required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "_supporting_gold": [],
+      "_mode": "single_cite",
+      "gold_locations": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": {
+          "page": 14,
+          "structural_path": [
+            "Moving around Other Creatures"
+          ],
+          "source_unit_ids": [
+            "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+          ]
+        }
+      },
+      "required_gold_rationale": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": "Exact sourced occupancy paragraph"
+      }
+    },
+    {
+      "id": "ground_occ_2024_004",
+      "tier": "T2",
+      "question_type": "grounding",
+      "question": "Does a Tiny creature avoid becoming Prone in shared space?",
+      "expected_answer_summary": "",
+      "source_page": 14,
+      "gold_unit_ids": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "supporting_gold": [],
+      "_required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "_supporting_gold": [],
+      "_mode": "single_cite",
+      "gold_locations": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": {
+          "page": 14,
+          "structural_path": [
+            "Moving around Other Creatures"
+          ],
+          "source_unit_ids": [
+            "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+          ]
+        }
+      },
+      "required_gold_rationale": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": "Exact sourced occupancy paragraph"
+      }
+    },
+    {
+      "id": "ground_occ_2024_005",
+      "tier": "T2",
+      "question_type": "grounding",
+      "question": "Does a prone ally let me willingly end a move in its space?",
+      "expected_answer_summary": "",
+      "source_page": 14,
+      "gold_unit_ids": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "supporting_gold": [],
+      "_required_gold": [
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "_supporting_gold": [],
+      "_mode": "single_cite",
+      "gold_locations": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": {
+          "page": 14,
+          "structural_path": [
+            "Moving around Other Creatures"
+          ],
+          "source_unit_ids": [
+            "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+          ]
+        }
+      },
+      "required_gold_rationale": {
+        "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": "Exact sourced occupancy paragraph"
+      }
+    },
+    {
+      "id": "ground_occ_2024_006",
+      "tier": "T2",
+      "question_type": "no_result",
+      "question": "zeppelin transmutation catalyst",
+      "expected_answer_summary": "",
+      "source_page": null,
+      "gold_unit_ids": [],
+      "required_gold": [],
+      "supporting_gold": [],
+      "_required_gold": [],
+      "_supporting_gold": [],
+      "_mode": "single_cite",
+      "gold_locations": {},
+      "required_gold_rationale": {}
+    }
+  ]
+}

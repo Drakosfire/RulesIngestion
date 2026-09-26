@@ -1,6 +1,6 @@
 # HANDOFF — RLH-04 DungeonMind retrieval benchmark
 
-**Status:** DEFERRED DRAFT  
+**Status:** ACCEPTED — bounded cited retrieval product gate passed
 **Repository:** `Drakosfire/RulesIngestion`  
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
 **Predecessor:** `RLH_03_DUNGEONMIND_PUBLICATION_PROOF_ACCEPTED`  
@@ -85,5 +85,9 @@ Acceptance token:
 ```text
 RLH_04_DUNGEONMIND_RETRIEVAL_BENCHMARK_ACCEPTED
 ```
+
+## Acceptance witness
+
+Activated after RulesIngestion PR #3 merged at `ad1298a53dd4e09a5d3f7db53a867106b6b08aef`. The contract-valid six-query benchmark and comparison are checked in under `evals/semantic_lifting/occupancy_v1/`. DungeonMind recovered the exact required EvidenceUnit for both canonical questions at top 3, returned complete admitted evidence and exact source identity, repeated with identical membership/order, and returned no result for the unrelated query. The existing RulesIngestion BM25 baseline hit all five evidence-bearing queries but returned its sole corpus unit for the unrelated query. The comparison is explicitly limited to the one-unit SRD fixture; the full PHB substrate is unavailable here. Stable run digest: `7d9c7460bc0a81d08889626e3ea99f461ab02b0f78f66fbebc86508d53e3dbd4`.
 
 If comparative ranking is materially worse than baseline, record that honestly; it does not block the product lane if the bounded exact-evidence gate passes.
