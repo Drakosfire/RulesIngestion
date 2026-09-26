@@ -1,0 +1,43 @@
+{
+  "acceptance_status": "blocked_substrate_gap",
+  "decision_basis": "No incremental required-evidence opportunity on the available one-unit fixture; multihop comparison blocked by absent source-grounded substrate.",
+  "disposition": "GRAPH_ASSIST_NO_PROMOTION",
+  "grounding_queries": 5,
+  "metrics_not_estimable": [
+    "added_evidence_precision",
+    "edge_adjudication_accuracy",
+    "answer_support_delta",
+    "last_required_evidence_rank_delta",
+    "edge_review_rate",
+    "graph_latency_cost_delta"
+  ],
+  "next_fixture_requirement": "At least two distinct exact source EvidenceUnits in a published multihop neighborhood with human-gold edges and required-evidence sets.",
+  "promotion_allowed": false,
+  "published_assertions": 2,
+  "published_revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+  "schema_version": "rlh05_graph_value_decision_v1",
+  "scope": "published_2024_srd_occupancy_fixture_only",
+  "source_evidence_units": 1,
+  "treatments": {
+    "A_existing_bm25": {
+      "required_full_set": 5,
+      "total": 5
+    },
+    "B_dungeonmind_retrieval": {
+      "required_full_set": 5,
+      "total": 5
+    },
+    "C_graph_closure": {
+      "reason": "all accepted assertions cite the same EvidenceUnit",
+      "status": "not_identifiable"
+    },
+    "D_structured_edge_adjudication": {
+      "reason": "no human-gold multihop edges",
+      "status": "not_run"
+    },
+    "E_jev_edge_adjudication": {
+      "reason": "no human-gold multihop edges",
+      "status": "not_run"
+    }
+  }
+}

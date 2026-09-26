@@ -1,6 +1,6 @@
 # HANDOFF — RLH-05 graph reasoning benchmark
 
-**Status:** DEFERRED DRAFT / RESEARCH LANE  
+**Status:** ACTIVE — bounded controller implemented; promotion blocked by substrate coverage  
 **Repository:** `Drakosfire/RulesIngestion`  
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
 **Predecessor:** `RLH_04_DUNGEONMIND_RETRIEVAL_BENCHMARK_ACCEPTED`  
@@ -9,6 +9,8 @@
 **Unlocks:** RLH-09 uses this result to decide whether graph closure belongs in formal-rule preparation.
 
 ## Experimental slice
+
+Re-anchor finding: the checked-in PHB multihop working set has no available source EvidenceUnits in this checkout. The accepted SRD occupancy publication has two accepted assertions but only one exact EvidenceUnit. Its five grounding queries are already 5/5 for both retrieval treatments at top 1, so graph closure cannot add required evidence or test edge adjudication. This PR implements and tests the bounded closure controller and records a `GRAPH_ASSIST_NO_PROMOTION` decision for this available fixture. It does **not** claim RLH-05 acceptance, a valid multihop A–E comparison, or Jev/structured edge accuracy. A full comparison requires a source-grounded multihop publication and human-gold edges; do not fabricate those inputs from the historical chunk IDs.
 
 Do not semantically lift a whole rulebook.
 
