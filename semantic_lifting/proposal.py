@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
 from generationengine import GenerationClient, TextRequest
+from pydantic import BaseModel, ConfigDict, Field
 
 from semantic_lifting.contracts import canonical_json, digest, ge_contract, ge_receipt
-
 
 PROPOSAL_PROMPT = """Read only the supplied authored EvidenceUnit. Propose the smallest set of atomic rule claims that its text actually states. Separate a prohibition from any consequence or exclusion. Do not infer a prone-ally exception or cite model-generated text as evidence. Every candidate must cite the supplied EvidenceUnit ID. Normalize subject, predicate, and value as short strings. Do not publish any candidate as rule truth."""
 

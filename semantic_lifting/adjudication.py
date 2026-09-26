@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
 from generationengine import (
     BinaryDecisionQuestion,
     ChoiceDecisionQuestion,
@@ -12,9 +11,9 @@ from generationengine import (
     GenerationClient,
     TextRequest,
 )
+from pydantic import BaseModel, ConfigDict
 
 from semantic_lifting.contracts import canonical_json, digest, ge_contract, ge_receipt
-
 
 CLASSIFICATION_CRITERIA = {
     "restriction": "A prohibition or default rule about what cannot be done.",
