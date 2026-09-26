@@ -1,0 +1,75 @@
+{
+  "schema_version": "semantic-ge-receipt-v2",
+  "contract": {
+    "execution_contract_version": "semantic-ge-receipt-v2",
+    "generationengine_commit": "55f6707de40c62893855b13e875730e804853d61",
+    "operation": "generate_structured",
+    "requested_provider": "openai",
+    "requested_model": "gpt-5.3-codex",
+    "requested_profile": null,
+    "input_digest": "1fe3ec35f2f7a8efc46ff6a55991688df5f1e4f334820464137bc418b7659b3e",
+    "prompt_hash": "e559084171dfbf54cd939d9923a5c015a7dd4f0019da7860afbee80d299352e6",
+    "schema_hash": "b7d7a0e0dc9ce88f7020fbb9ed25d548cd7e2201e7ce323f93648d4528f94785",
+    "questions_hash": null,
+    "max_output_tokens": 1500
+  },
+  "request_digest": "d7b6125e5ca2aae4046489ec4d8e1caac669f456f5919ef28ea68a126b83d095",
+  "generationengine_commit": "55f6707de40c62893855b13e875730e804853d61",
+  "operation": "generate_structured",
+  "observation": {
+    "provider": "openai",
+    "requested_profile": null,
+    "requested_model": "gpt-5.3-codex",
+    "resolved_model": "gpt-5.3-codex",
+    "response_model": "gpt-5.3-codex",
+    "provider_transport": null,
+    "provider_request_id": "req_e28ba2bec6d645769dbd740027e71958",
+    "provider_response_id": "resp_02ffe9bcf639ba55006ab8141230e487d1958319b6424107f2",
+    "input_tokens": 483,
+    "cached_input_tokens": 0,
+    "output_tokens": 223,
+    "reasoning_tokens": 0,
+    "cost_usd": null,
+    "latency_ms": 8907,
+    "retry_count": 0,
+    "transport_retry_count": 0,
+    "conformance_retry_count": 0,
+    "provider_attempt_count": 1,
+    "state": "completed",
+    "failure_code": null,
+    "pricing_source": null
+  },
+  "output": {
+    "candidates": [
+      {
+        "kind": "restriction",
+        "subject": "creature movement",
+        "predicate": "cannot willingly end move in occupied space",
+        "value": "another creature's space",
+        "evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ]
+      },
+      {
+        "kind": "consequence",
+        "subject": "creature ending turn in another creature's space",
+        "predicate": "gains condition",
+        "value": "Prone",
+        "evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ]
+      },
+      {
+        "kind": "exception",
+        "subject": "prone-on-shared-space consequence",
+        "predicate": "does not apply if",
+        "value": "creature is Tiny or larger than the other creature",
+        "evidence_unit_ids": [
+          "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+        ]
+      }
+    ]
+  },
+  "semantic_digest": "c54b083855c136177508261fcda676c2e457e96e4e702c6c7a815cafcbc7c809",
+  "receipt_digest": "637bdf4735d52b43493f62cbdf50dc2058cf26a912ec86b7134b737a9b8ae317"
+}

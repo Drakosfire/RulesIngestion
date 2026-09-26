@@ -1,0 +1,50 @@
+{
+  "schema_version": "semantic-ge-receipt-v2",
+  "contract": {
+    "execution_contract_version": "semantic-ge-receipt-v2",
+    "generationengine_commit": "55f6707de40c62893855b13e875730e804853d61",
+    "operation": "decide",
+    "requested_provider": "typesafe",
+    "requested_model": "typesafe-ai/jev",
+    "requested_profile": null,
+    "input_digest": "4581bc3096df85dccf3af06ff1e2b3547c8c96e2bebbbf9758e0af431df7bb57",
+    "prompt_hash": null,
+    "schema_hash": null,
+    "questions_hash": "d996949ea32a849acb0f469c15e4f554a1a2e68627043bcd3052bc8f04aada68",
+    "max_output_tokens": null
+  },
+  "request_digest": "9855e57997a428a9d1514c076565f4ec91d8c3e5447017ed90b186947e7f9747",
+  "generationengine_commit": "55f6707de40c62893855b13e875730e804853d61",
+  "operation": "decide",
+  "observation": {
+    "provider": "typesafe",
+    "requested_profile": null,
+    "requested_model": "typesafe-ai/jev",
+    "resolved_model": "typesafe-ai/jev",
+    "response_model": "typesafe-ai/jev",
+    "provider_transport": "vercel_ai_gateway",
+    "provider_request_id": null,
+    "provider_response_id": null,
+    "input_tokens": 1119,
+    "cached_input_tokens": null,
+    "output_tokens": 131,
+    "reasoning_tokens": null,
+    "cost_usd": null,
+    "latency_ms": 1726,
+    "retry_count": 0,
+    "transport_retry_count": 0,
+    "conformance_retry_count": 0,
+    "provider_attempt_count": 1,
+    "state": "completed",
+    "failure_code": null,
+    "pricing_source": null
+  },
+  "output": {
+    "classification": "restriction",
+    "evidence_sufficient": true,
+    "evidence_sufficient_probability": 0.58,
+    "disposition": "accept"
+  },
+  "semantic_digest": "00bf76bbe210afaf21a731dda74178cb2f6f6e1e1e87a0444f5a7ea6962f1a7a",
+  "receipt_digest": "b4a9dcbd90b45bf1d47b061060fab739fb922c36e1066fa39040d57b2c713844"
+}

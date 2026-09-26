@@ -1,0 +1,50 @@
+{
+  "schema_version": "semantic-ge-receipt-v2",
+  "contract": {
+    "execution_contract_version": "semantic-ge-receipt-v2",
+    "generationengine_commit": "55f6707de40c62893855b13e875730e804853d61",
+    "operation": "generate_structured",
+    "requested_provider": "openai",
+    "requested_model": "gpt-5.3-codex",
+    "requested_profile": null,
+    "input_digest": "1638c3d9c6450a62590d0d9b4dc6567d61cbed7057c2a8996ebf12ea3ded8c03",
+    "prompt_hash": "c9d77127e71846389c5e0cadfc6ae142e747026bc0b7b9337c0a70d68675c781",
+    "schema_hash": "72f457f4adb7dd539479731747b8876e103fcfec0568b6c15851964350893976",
+    "questions_hash": null,
+    "max_output_tokens": 800
+  },
+  "request_digest": "b08497df61e1395462f88303388c5be2088ca59b8e232fb5504f26e4ce0fcb95",
+  "generationengine_commit": "55f6707de40c62893855b13e875730e804853d61",
+  "operation": "generate_structured",
+  "observation": {
+    "provider": "openai",
+    "requested_profile": null,
+    "requested_model": "gpt-5.3-codex",
+    "resolved_model": "gpt-5.3-codex",
+    "response_model": "gpt-5.3-codex",
+    "provider_transport": null,
+    "provider_request_id": "req_040f4fcee18c4d13a2d3b9c704dbc102",
+    "provider_response_id": "resp_0d41a85f1ab2a30f006ab8141a125087d18b93eff79385996a",
+    "input_tokens": 684,
+    "cached_input_tokens": 0,
+    "output_tokens": 101,
+    "reasoning_tokens": 0,
+    "cost_usd": null,
+    "latency_ms": 2474,
+    "retry_count": 0,
+    "transport_retry_count": 0,
+    "conformance_retry_count": 0,
+    "provider_attempt_count": 1,
+    "state": "completed",
+    "failure_code": null,
+    "pricing_source": null
+  },
+  "output": {
+    "classification": "consequence",
+    "evidence_sufficient": true,
+    "disposition": "review",
+    "rationale": "The evidence states a consequence: if a creature ends a turn in a space with another creature, it has the Prone condition. However, the candidate is missing explicit exclusions in the evidence (“unless you are Tiny or are of a larger size than the other creature”). Because those conditions are material and omitted, it is only partially supported as worded."
+  },
+  "semantic_digest": "cb366b7cdb67a29113ecbe0601221564147c73fd249a08c8aa8774bdfc6cb7e3",
+  "receipt_digest": "ee0d7e4b4aae872c9ed23a783d3e319f96ad14137e6af8e8d9199f206f4fadeb"
+}
