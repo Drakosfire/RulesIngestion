@@ -9,10 +9,12 @@ Deterministic rulebook ingestion and retrieval-evaluation pipeline.
 - **Stage A':** optional retrieval-only enrichment over Stage B units.
 - **Retrieval Lab:** embed/eval over Stage B substrate, with corpus-specific benchmark projections and contract-validated run artifacts.
 
-Canonical design lives in `Docs/Design/v1/`. Historical design notes remain in
-`Docs/Design/` and superseded design docs live in `Docs/Design/archive/`.
-
-See [Docs/Design/v1/baseline_manifest.md](Docs/Design/v1/baseline_manifest.md) for reproducibility, [Docs/Design/v1/retrieval_lab_v1.md](Docs/Design/v1/retrieval_lab_v1.md) for retrieval-lab architecture, and [Docs/Design/gold_resolution_design.md](Docs/Design/gold_resolution_design.md) for the benchmark definition/projection lifecycle.
+The [design index](Docs/Design/README.md) identifies current contracts, including
+the [Retrieval Lab architecture](Docs/Design/RETRIEVAL_LAB.md) and
+[benchmark projection lifecycle](Docs/Design/gold_resolution_design.md).
+The [v1 baseline manifest](Docs/Design/archive/v1/baseline_manifest.md) and
+[v1 retrieval design](Docs/Design/archive/v1/retrieval_lab_v1.md) are historical
+references.
 
 ## What You Can Do From This Repo
 
