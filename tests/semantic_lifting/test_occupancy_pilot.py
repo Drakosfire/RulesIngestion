@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+import asyncio
 from pathlib import Path
 
 import pytest
+from generationengine import InferenceObservation, ObservationState
 
+from semantic_lifting.contracts import ge_receipt
 from semantic_lifting.occupancy import SemanticCandidate, compare_with_gold, load_exact_evidence
+from semantic_lifting.proposal import proposal_contract
 from scripts.run_occupancy_semantic_pilot import run
 
 
@@ -47,12 +51,17 @@ def test_offline_replay_rejects_receipt_contract_drift(tmp_path: Path) -> None:
     for name in ("stageA.surface.ast.json", "stageB.evidence_units.json", "source_manifest.json",
                  "human_gold.json", "candidate_package.json"):
         (tmp_path / name).write_bytes((FIXTURE / name).read_bytes())
-    source_receipt = FIXTURE / "provider_receipts/proposal.json"
-    target = tmp_path / "provider_receipts/proposal.json"
-    target.parent.mkdir()
-    receipt = json.loads(source_receipt.read_text())
+    evidence = [unit.to_dict() for unit in load_exact_evidence(tmp_path)]
+    contract = proposal_contract(evidence, "gpt-5.3-codex")
+    source_receipt = json.loads((FIXTURE / "provider_receipts/proposal.json").read_text())
+    observation = InferenceObservation(provider="openai", requested_model="gpt-5.3-codex",
+                                       resolved_model="gpt-5.3-codex", latency_ms=1,
+                                       retry_count=0, state=ObservationState.COMPLETED)
+    receipt = ge_receipt(contract, observation, source_receipt["output"])
+    target = tmp_path / "generationengine_v2/provider_receipts/proposal.json"
+    target.parent.mkdir(parents=True)
     receipt["request_digest"] = "tampered"
     target.write_text(json.dumps(receipt))
     with pytest.raises(ValueError, match="contract drift"):
-        run(tmp_path, proposal_model="gpt-5.3-codex", adjudicator_model="gpt-5.3-codex",
-            jev_model="typesafe-ai/jev", live=False)
+        asyncio.run(run(tmp_path, proposal_model="gpt-5.3-codex", adjudicator_model="gpt-5.3-codex",
+                        jev_model="typesafe-ai/jev", live=False))
