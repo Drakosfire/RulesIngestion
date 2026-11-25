@@ -110,6 +110,7 @@ def run_stage_a(
             page_index,
             fingerprint.fingerprint,
             ocr_out_dir,
+            image_path=Path(fingerprint.image_path),
             dpi=dpi,
         )
 
