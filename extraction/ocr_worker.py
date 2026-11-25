@@ -49,8 +49,11 @@ class WarmOCRWorker:
         process, self.process = self.process, None
         if process is None:
             return
-        process.stdin.close()
         try:
+            try:
+                process.stdin.close()
+            except BrokenPipeError:
+                pass
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             process.kill()
