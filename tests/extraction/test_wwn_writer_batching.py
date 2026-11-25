@@ -65,3 +65,39 @@ def test_group_retries_only_missing_units_and_replays_offline(tmp_path, interrup
     assert {json.loads(p.read_text())["unit_id"] for p in tmp_path.glob("*.json")} == {"first", "second"}
     receipt, = (tmp_path / "request-receipts").glob("*.json")
     assert json.loads(receipt.read_text())["observation"]["input_tokens"] == 123
+
+
+def test_failed_group_cleans_up_sibling_before_closing_client(tmp_path, monkeypatch):
+    import generationengine.client
+
+    rows = [_row("first", 1), _row("second", 2)]
+    rows[1]["pdf_page"] = 8
+    source = tmp_path / "units.jsonl"
+    source.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    events = []
+
+    class Client:
+        async def aclose(self):
+            events.append("closed")
+
+    async def group(_client, records, _args, _output):
+        if records[0]["pdf_page"] == 7:
+            await sibling_started.wait()
+            raise ValueError("invalid cache")
+        try:
+            sibling_started.set()
+            await asyncio.Future()
+        finally:
+            await asyncio.sleep(0)
+            events.append("sibling cleaned up")
+
+    monkeypatch.setattr(generationengine.client, "GenerationClient", Client)
+    monkeypatch.setattr(writer, "annotate_group", group)
+    args = SimpleNamespace(
+        units=source, out_dir=tmp_path / "output", group_size=2, concurrency=2, limit=None,
+    )
+    sibling_started = asyncio.Event()
+    with pytest.raises(ExceptionGroup) as failure:
+        asyncio.run(writer.run(args))
+    assert str(failure.value.exceptions[0]) == "invalid cache"
+    assert events == ["sibling cleaned up", "closed"]

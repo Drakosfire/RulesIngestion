@@ -258,7 +258,9 @@ async def run(args) -> int:
                     async with slots:
                         return await annotate_group(client, group, args, output)
 
-                return int(sum(await asyncio.gather(*(run_group(group) for group in groups))) > 0)
+                async with asyncio.TaskGroup() as tasks:
+                    group_tasks = [tasks.create_task(run_group(group)) for group in groups]
+                return int(sum(task.result() for task in group_tasks) > 0)
             batch = []
             for index, line in enumerate(records):
                 if args.limit is not None and index >= args.limit:
