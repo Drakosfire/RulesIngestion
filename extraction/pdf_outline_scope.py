@@ -29,7 +29,11 @@ def fill_missing_scope(
     units: list[EvidenceUnit], page: int, destinations: dict[int, list[str]],
 ) -> list[EvidenceUnit]:
     """Supply publisher scope only to units without their own heading path."""
-    prior = max((n for n in destinations if n <= page), default=None)
+    # Page-only bookmarks cannot resolve which side of a new heading an
+    # unscoped unit on its destination page belongs to.
+    if page in destinations:
+        return units
+    prior = max((n for n in destinations if n < page), default=None)
     path = destinations.get(prior, [])
     if not path:
         return units
