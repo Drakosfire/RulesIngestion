@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -36,6 +37,7 @@ def run_ocr(
     page_fingerprint: str,
     out_dir: Path,
     *,
+    image_path: Path,
     dpi: int = 200,
     timeout: int = SUBPROCESS_TIMEOUT_SEC,
 ) -> StageARecord:
@@ -64,12 +66,18 @@ def run_ocr(
     out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    image_path = image_path.resolve(strict=True)
+    if blake3.blake3(image_path.read_bytes()).hexdigest() != page_fingerprint:
+        raise ValueError(f"OCR input no longer matches page fingerprint: {image_path}")
+
+    attempt_dir = Path(tempfile.mkdtemp(prefix="attempt-", dir=out_dir))
+    ocr_json_path = attempt_dir / f"{image_path.stem}_ocr.json"
+
     cmd = [
         "bash",
         str(VENV_SCRIPT),
-        "--pdf", str(pdf_path.resolve()),
-        "--page", str(page_index),
-        "--out-dir", str(out_dir),
+        "--image", str(image_path),
+        "--out-dir", str(attempt_dir),
     ]
 
     logger.info("OCR subprocess: %s page %d", pdf_path.name, page_index)
@@ -91,16 +99,12 @@ def run_ocr(
             f"{pdf_path.name} page {page_index}:\n{stderr_tail}"
         )
 
-    # Find the *_ocr.json output produced by the minimal script
-    ocr_jsons = list(out_dir.glob("*_ocr.json"))
-    if not ocr_jsons:
-        raise RuntimeError(
-            f"No *_ocr.json found in {out_dir} after OCR run. "
-            f"stdout: {(result.stdout or '')[:300]}"
-        )
-
-    ocr_json_path = ocr_jsons[0]
+    if not ocr_json_path.is_file():
+        raise RuntimeError(f"OCR did not write expected output: {ocr_json_path}")
     ocr_data = json.loads(ocr_json_path.read_text(encoding="utf-8"))
+    reported_image = ocr_data.get("image_path")
+    if reported_image != str(image_path):
+        raise RuntimeError(f"OCR output reports an unexpected input image: {reported_image!r}")
 
     raw_markdown = ocr_data.get("markdown", "")
     if not raw_markdown:
