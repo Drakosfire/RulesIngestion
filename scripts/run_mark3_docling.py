@@ -19,7 +19,10 @@ from docling_core.types.doc import DoclingDocument
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from extraction.docling_order import repair
+from extraction.gates_b import run_stage_b_gates
+from extraction.pdf_outline_scope import fill_missing_scope, outline_scope
 from extraction.pipeline import run_a_b
+from extraction.schemas import EvidenceUnit
 
 
 def export_page(doc: DoclingDocument, page: int) -> tuple[str, int]:
@@ -39,11 +42,13 @@ def main() -> int:
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--range", dest="ranges", action="append", help="Inclusive 1-based range, e.g. 38-41")
     parser.add_argument("--threads", type=int, default=8)
+    parser.add_argument("--outline-scope", action="store_true", help="Fill missing heading paths from PDF bookmarks")
     args = parser.parse_args()
     source = args.pdf.resolve(strict=True)
     with pymupdf.open(source) as pdf:
         if args.threads < 1:
             parser.error("--threads must be positive")
+        destinations = outline_scope(pdf.get_toc()) if args.outline_scope else {}
         ranges = []
         seen = set()
         for text in args.ranges or [f"1-{len(pdf)}"]:
@@ -59,7 +64,7 @@ def main() -> int:
             source_hash = hashlib.file_digest(stream, "sha256").hexdigest()
         manifest = {"source": str(source), "sha256": source_hash,
                     "docling": version("docling"), "docling_core": version("docling-core"),
-                    "ranges": ranges, "pages": {}}
+                    "ranges": ranges, "outline_scope": args.outline_scope, "pages": {}}
         (out / "source.json").write_text(json.dumps(manifest, indent=2))
         options = PdfPipelineOptions(do_ocr=False, accelerator_options=AcceleratorOptions(
             device=AcceleratorDevice.CPU, num_threads=args.threads))
@@ -84,7 +89,18 @@ def main() -> int:
                 units = json.loads((page_out / "stageB.evidence_units.json").read_text())["units"]
                 if combined["stage_a"]["table_count"] != expected or sum(u["unit_type"] == "table" for u in units) != expected:
                     raise ValueError(f"PDF page {n}: source tables were lost in Mark III")
-                if not combined["all_gates_passed"]:
+                stage_b_passed = combined["stage_b"]["gates_passed"]
+                if args.outline_scope:
+                    scoped = fill_missing_scope([EvidenceUnit.from_dict(u) for u in units], n, destinations)
+                    ast = json.loads((page_out / "stageA.surface.ast.json").read_text())
+                    diagnostics = run_stage_b_gates(scoped, ast_dict=ast, is_standalone=(n == 1))
+                    stage_b_passed = all(g.passed for g in diagnostics)
+                    (page_out / "stageB.outline_scoped.json").write_text(json.dumps({
+                        "units": [u.to_dict() for u in scoped],
+                        "gates_passed": stage_b_passed,
+                        "gate_details": [g.to_dict() for g in diagnostics],
+                    }, ensure_ascii=False, indent=2))
+                if not combined["stage_a"]["gates_passed"] or not stage_b_passed:
                     raise ValueError(f"PDF page {n}: Mark III gates failed; see {page_out}")
                 manifest["pages"][n] = {"pdf_index": n - 1, "pdf_label": pdf[n - 1].get_label(),
                                           "tables": expected, "moves": [m for m in moves if m["page"] == n]}
