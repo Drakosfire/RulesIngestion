@@ -57,7 +57,14 @@ def _repair_page(doc, pdf, target_page):
         tail = location(continuation['text'], native)
         if not tail or not all(moved) or not all(split):
             continue
-        pairs = moved + split + [tail]
+        # Require the crossed heading immediately before its own first paragraph
+        # in the native stream. A repeated running header elsewhere is irrelevant.
+        heading_text = normalize(text_at(start)["text"])
+        heading_at = split[0][0] + 1 - len(heading_text)
+        if heading_at < 0 or native[heading_at:split[0][0] + 1] != heading_text:
+            continue
+        crossed_heading = heading_at, split[0][0] + 1
+        pairs = moved + [crossed_heading] + split + [tail]
         if any(a[1] - 1 > c[0] for a, c in zip(pairs, pairs[1:])):
             continue
         # The native order must join the preceding paragraph directly to its tail.
