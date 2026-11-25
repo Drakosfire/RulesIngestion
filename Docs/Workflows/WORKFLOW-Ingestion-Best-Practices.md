@@ -134,3 +134,25 @@ Before declaring an ingestion run complete:
 - Gate failures are reviewed in `EVALUATION_REPORT.md` before retrieval benchmarking.
 - Path naming follows canonical conventions (no new `SwordsandWizardy` references).
 
+
+### Optional local Docling input
+
+For PDFs with usable native text, run `scripts/run_mark3_docling.py` from a
+separate CPU Docling environment. The WWN comparison used Docling 2.153.0 and
+docling-core 2.108.0, plus PyMuPDF and blake3. Keep the environment, model cache,
+and output on task-owned storage. Configure Hugging Face and XDG cache paths
+before importing Docling.
+
+```sh
+/path/to/docling-venv/bin/python scripts/run_mark3_docling.py \
+  --pdf /path/to/book.pdf --out-dir /path/to/new-run \
+  --range 35 --range 38-41
+```
+
+Ranges are inclusive and one-based; omit them for the whole PDF. The runner
+retains Docling documents before and after ordering repair, along with the
+source hash, source page indexes and PDF page labels. PDF labels can differ
+from printed labels. HTML tables carry the structured cells into Mark III.
+A source, Stage A, or Stage B table-count mismatch fails the run. Verify
+reading order against the source for the intended book; ambiguous paragraphs
+may remain in their original Docling order.
