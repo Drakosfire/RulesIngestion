@@ -10,11 +10,18 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from extraction.schemas import EvidenceUnit
 from extraction.schemas_a_prime import APrimeEnrichment, TOPIC_TAGS_VOCABULARY
-from extraction.stage_a_prime import PROMPT_ID, _validate_surface_forms_substrings
+from extraction.stage_a_prime import _validate_surface_forms_substrings
+
+class WriterAnnotation(APrimeEnrichment):
+    """Local artifact with provenance for the distinct Writer prompt."""
+
+    prompt_id: Literal["WWN_WRITER_PROMPT_V1"] = "WWN_WRITER_PROMPT_V1"
+
 
 OUTPUT_FIELDS = (
     "summary_1s", "summary_3b", "topic_tags", "co_retrieval_hints",
@@ -42,17 +49,17 @@ def validate_cached(saved: dict, key: str, unit_id: str, model: str, effort: str
     if (saved["cache_key"], saved["unit_id"], saved["requested_model"], saved["requested_effort"]) != (key, unit_id, model, effort):
         raise ValueError("Writer cache identity mismatch")
     data = saved["annotation"]
-    if set(data) != set(APrimeEnrichment.model_fields):
+    if set(data) != set(WriterAnnotation.model_fields):
         raise ValueError("Writer cache annotation is incomplete")
-    annotation = APrimeEnrichment.model_validate(data)
-    if (annotation.model_id, annotation.input_fingerprint, annotation.prompt_id) != (model, key, PROMPT_ID):
+    annotation = WriterAnnotation.model_validate(data)
+    if (annotation.model_id, annotation.input_fingerprint, annotation.prompt_id) != (model, key, "WWN_WRITER_PROMPT_V1"):
         raise ValueError("Writer cache annotation metadata mismatch")
     if datetime.fromisoformat(annotation.created_at).tzinfo is None:
         raise ValueError("Writer cache annotation timestamp must include a timezone")
 
 
 def writer_schema() -> dict:
-    schema = APrimeEnrichment.model_json_schema()
+    schema = WriterAnnotation.model_json_schema()
     schema["properties"] = {name: schema["properties"][name] for name in OUTPUT_FIELDS}
     schema["required"] = list(OUTPUT_FIELDS)
     schema["additionalProperties"] = False
@@ -91,10 +98,9 @@ async def annotate(client, record: dict, model: str, effort: str, output: Path) 
     ))
     if result.parsed is None or set(result.parsed) != set(OUTPUT_FIELDS):
         raise ValueError("Writer returned missing or unexpected annotation fields")
-    annotation = APrimeEnrichment.model_validate(result.parsed)
+    annotation = WriterAnnotation.model_validate(result.parsed)
     _validate_surface_forms_substrings(annotation, unit.text)
     annotation.model_id = model
-    annotation.prompt_id = PROMPT_ID
     annotation.input_fingerprint = key
     annotation.created_at = datetime.now(timezone.utc).isoformat()
     atomic_write(destination, json.dumps({
