@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import select
 import subprocess
 import tempfile
 import time
@@ -31,6 +32,57 @@ DEFAULT_PROMPT = "<image>\n<|grounding|>Convert the document to markdown."
 SUBPROCESS_TIMEOUT_SEC = 600  # 10 minutes
 
 
+class WarmOCRWorker:
+    """One synchronous page at a time on a job-owned DeepSeek process."""
+
+    def __init__(self, log_path: Path):
+        self.log_path = log_path
+        self.process: subprocess.Popen | None = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+    def close(self) -> None:
+        process, self.process = self.process, None
+        if process is None:
+            return
+        try:
+            try:
+                process.stdin.close()
+            except BrokenPipeError:
+                pass
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        finally:
+            process.stdout.close()
+
+    def infer(self, image_path: Path, output: Path, timeout: int) -> None:
+        if self.process is None:
+            with self.log_path.open("ab") as log:
+                self.process = subprocess.Popen(
+                    ["bash", str(VENV_SCRIPT), "--serve"],
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log,
+                )
+        process = self.process
+        try:
+            request = json.dumps({"image": str(image_path), "output": str(output)})
+            process.stdin.write(request.encode() + b"\n")
+            process.stdin.flush()
+            if not select.select([process.stdout], [], [], timeout)[0]:
+                raise TimeoutError("page request timed out")
+            response = json.loads(process.stdout.readline())
+        except (OSError, ValueError) as exc:
+            self.close()
+            raise RuntimeError(f"Warm OCR worker failed; see {self.log_path}: {exc}") from exc
+        if not response.get("ok"):
+            raise RuntimeError(f"Warm OCR page failed; see {self.log_path}: {response.get('error')}")
+
+
 def run_ocr(
     pdf_path: Path,
     page_index: int,
@@ -40,6 +92,7 @@ def run_ocr(
     image_path: Path,
     dpi: int = 200,
     timeout: int = SUBPROCESS_TIMEOUT_SEC,
+    worker: WarmOCRWorker | None = None,
 ) -> StageARecord:
     """Run DeepSeek OCR on a single PDF page via the venv subprocess.
 
@@ -83,21 +136,19 @@ def run_ocr(
     logger.info("OCR subprocess: %s page %d", pdf_path.name, page_index)
     t0 = time.perf_counter()
 
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
-
-    elapsed = time.perf_counter() - t0
-
-    if result.returncode != 0:
-        stderr_tail = (result.stderr or "").strip()[-500:]
-        raise RuntimeError(
-            f"DeepSeek OCR failed (exit {result.returncode}) for "
-            f"{pdf_path.name} page {page_index}:\n{stderr_tail}"
+    if worker is not None:
+        worker.infer(image_path, attempt_dir, timeout)
+    else:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout,
         )
+        if result.returncode != 0:
+            stderr_tail = (result.stderr or "").strip()[-500:]
+            raise RuntimeError(
+                f"DeepSeek OCR failed (exit {result.returncode}) for "
+                f"{pdf_path.name} page {page_index}:\n{stderr_tail}"
+            )
+    elapsed = time.perf_counter() - t0
 
     if not ocr_json_path.is_file():
         raise RuntimeError(f"OCR did not write expected output: {ocr_json_path}")

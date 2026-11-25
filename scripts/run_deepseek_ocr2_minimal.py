@@ -147,7 +147,11 @@ def main() -> None:
         default="<image>\n<|grounding|>Convert the document to markdown.",
         help="Prompt (default: grounding markdown)",
     )
+    parser.add_argument("--serve", action="store_true", help="Read page requests from stdin")
     args = parser.parse_args()
+    if args.serve:
+        serve(args)
+        return
 
     if args.create_test_image:
         out_base = args.out_dir.resolve()
@@ -181,6 +185,33 @@ def main() -> None:
     out_dir = args.out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    model_name, tokenizer, model = load_model(args)
+
+    infer_page(args, model_name, tokenizer, model, image_path, out_dir, source_pdf, source_page)
+
+
+def serve(args) -> None:
+    from contextlib import redirect_stdout
+    import traceback
+
+    protocol = sys.stdout
+    with redirect_stdout(sys.stderr):
+        model_name, tokenizer, model = load_model(args)
+        for line in sys.stdin:
+            try:
+                request = json.loads(line)
+                infer_page(
+                    args, model_name, tokenizer, model,
+                    Path(request["image"]), Path(request["output"]), None, None,
+                )
+                response = {"ok": True}
+            except Exception as exc:
+                traceback.print_exc()
+                response = {"ok": False, "error": str(exc)[:2000]}
+            print(json.dumps(response), file=protocol, flush=True)
+
+
+def load_model(args):
     if args.device == "cpu":
         print(
             "Error: CPU mode is not supported. DeepSeek OCR 2 infer() uses CUDA; use --device cuda.",
@@ -216,6 +247,10 @@ def main() -> None:
     if use_cuda:
         model = model.cuda()
 
+    return model_name, tokenizer, model
+
+
+def infer_page(args, model_name, tokenizer, model, image_path, out_dir, source_pdf, source_page):
     print(f"Inference on: {image_path}")
     t0 = time.time()
     res = model.infer(

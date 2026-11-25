@@ -20,7 +20,7 @@ from typing import Any
 
 from extraction.ast_parser import parse_markdown_to_ast
 from extraction.gates_a import run_stage_a_gates
-from extraction.ocr_worker import run_ocr
+from extraction.ocr_worker import WarmOCRWorker, run_ocr
 from extraction.page_source import render_page
 from extraction.schemas import (
     GateDiagnostic,
@@ -62,6 +62,7 @@ def run_stage_a(
     *,
     dpi: int = 200,
     skip_ocr: bool = False,
+    worker: WarmOCRWorker | None = None,
     raw_markdown_override: str | None = None,
 ) -> StageAResult:
     """Execute the full Stage A pipeline for a single page.
@@ -111,6 +112,7 @@ def run_stage_a(
             fingerprint.fingerprint,
             ocr_out_dir,
             image_path=Path(fingerprint.image_path),
+            worker=worker,
             dpi=dpi,
         )
 

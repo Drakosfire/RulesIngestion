@@ -19,6 +19,8 @@ Or provide a single page inline for quick testing:
 
 from __future__ import annotations
 
+from contextlib import nullcontext
+
 import argparse
 import json
 import logging
@@ -30,6 +32,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from extraction.ocr_worker import WarmOCRWorker  # noqa: E402
 from extraction.stage_a import StageAResult, run_stage_a  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -125,6 +128,7 @@ def main() -> None:
         action="store_true",
         help="Enable verbose (DEBUG) logging.",
     )
+    parser.add_argument("--warm-ocr", action="store_true", help="Reuse one OCR process for this sample")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -151,65 +155,67 @@ def main() -> None:
     results: list[dict] = []
     run_stage_b = args.stage == "ab"
 
-    for i, entry in enumerate(entries):
-        pdf_path = Path(entry["pdf"])
-        page_index = entry["page"]
-        label = entry["label"]
-        page_out = out_base / label
+    worker_context = WarmOCRWorker(out_base / "warm-ocr.log") if args.warm_ocr else nullcontext()
+    with worker_context as worker:
+        for i, entry in enumerate(entries):
+            pdf_path = Path(entry["pdf"])
+            page_index = entry["page"]
+            label = entry["label"]
+            page_out = out_base / label
 
-        print(f"[{i + 1}/{len(entries)}] {label}: {pdf_path.name} page {page_index}")
+            print(f"[{i + 1}/{len(entries)}] {label}: {pdf_path.name} page {page_index}")
 
-        t0 = time.perf_counter()
-        try:
-            stage_a_result: StageAResult = run_stage_a(
-                pdf_path, page_index, page_out, dpi=args.dpi,
-            )
+            t0 = time.perf_counter()
+            try:
+                stage_a_result: StageAResult = run_stage_a(
+                    pdf_path, page_index, page_out, dpi=args.dpi, worker=worker,
+                )
 
-            result_entry: dict = {
-                "label": label,
-                "pdf": str(pdf_path),
-                "page": page_index,
-                "elapsed_sec": round(time.perf_counter() - t0, 3),
-                "gates_passed": stage_a_result.gates_passed,
-                "node_count": stage_a_result.ast.node_count,
-                "table_count": stage_a_result.ast.table_count,
-                "content_hash": stage_a_result.ast.content_hash,
-                "gate_details": [g.to_dict() for g in stage_a_result.gate_diagnostics],
-                "error": None,
-            }
+                result_entry: dict = {
+                    "label": label,
+                    "pdf": str(pdf_path),
+                    "page": page_index,
+                    "elapsed_sec": round(time.perf_counter() - t0, 3),
+                    "gates_passed": stage_a_result.gates_passed,
+                    "node_count": stage_a_result.ast.node_count,
+                    "table_count": stage_a_result.ast.table_count,
+                    "content_hash": stage_a_result.ast.content_hash,
+                    "gate_details": [g.to_dict() for g in stage_a_result.gate_diagnostics],
+                    "error": None,
+                }
 
-            # Optionally run Stage B
-            if run_stage_b:
-                try:
-                    from extraction.pipeline import run_stage_b_on_result  # noqa: E402
+                # Optionally run Stage B
+                if run_stage_b:
+                    try:
+                        from extraction.pipeline import run_stage_b_on_result  # noqa: E402
 
-                    stage_b_result = run_stage_b_on_result(stage_a_result, page_out)
-                    result_entry["stage_b"] = {
-                        "unit_count": len(stage_b_result["units"]),
-                        "gates_passed": stage_b_result["gates_passed"],
-                        "gate_details": stage_b_result["gate_details"],
-                        "salvage_score": stage_b_result["salvage_score"],
-                    }
-                except Exception as e:
-                    result_entry["stage_b"] = {"error": str(e)}
-                    logger.error("Stage B failed for %s: %s", label, e)
+                        stage_b_result = run_stage_b_on_result(stage_a_result, page_out)
+                        result_entry["stage_b"] = {
+                            "unit_count": len(stage_b_result["units"]),
+                            "gates_passed": stage_b_result["gates_passed"],
+                            "gate_details": stage_b_result["gate_details"],
+                            "salvage_score": stage_b_result["salvage_score"],
+                        }
+                    except Exception as e:
+                        result_entry["stage_b"] = {"error": str(e)}
+                        logger.error("Stage B failed for %s: %s", label, e)
 
-        except Exception as e:
-            result_entry = {
-                "label": label,
-                "pdf": str(pdf_path),
-                "page": page_index,
-                "elapsed_sec": round(time.perf_counter() - t0, 3),
-                "gates_passed": False,
-                "node_count": 0,
-                "table_count": 0,
-                "content_hash": "",
-                "gate_details": [],
-                "error": str(e),
-            }
-            logger.error("Stage A failed for %s: %s", label, e)
+            except Exception as e:
+                result_entry = {
+                    "label": label,
+                    "pdf": str(pdf_path),
+                    "page": page_index,
+                    "elapsed_sec": round(time.perf_counter() - t0, 3),
+                    "gates_passed": False,
+                    "node_count": 0,
+                    "table_count": 0,
+                    "content_hash": "",
+                    "gate_details": [],
+                    "error": str(e),
+                }
+                logger.error("Stage A failed for %s: %s", label, e)
 
-        results.append(result_entry)
+            results.append(result_entry)
 
     # Write summary JSON
     summary_path = out_base / "run_summary.json"
