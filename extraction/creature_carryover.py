@@ -24,7 +24,7 @@ def continuation_scopes(document: dict) -> dict[int, tuple[str, str]]:
     scopes = {}
     for page, current in pages.items():
         label, section = current[0]
-        if label != "section_header" or section not in SECTIONS:
+        if label != "section_header" or section != "Actions":
             continue
         previous = pages.get(page - 1, [])
         headings = [
@@ -34,6 +34,8 @@ def continuation_scopes(document: dict) -> dict[int, tuple[str, str]]:
         if not headings:
             continue
         start = headings[-1]
+        if ("section_header", section) in previous[start + 1:]:
+            continue
         stats = []
         for kind, value in previous[start + 1:]:
             if kind == "section_header":
@@ -53,7 +55,7 @@ def bind_continuation(
     owner, section = scope
     bound = []
     for unit in units:
-        if unit.structural_path != [section]:
+        if unit.structural_path != [section] or unit.unit_type == "image_ref":
             break
         path = [owner, section]
         bound.append(replace(
