@@ -1,0 +1,374 @@
+[
+  {
+    "page": 347,
+    "owner": "Constrictor Snake",
+    "texts": [
+      {
+        "label": "section_header",
+        "text": "Constrictor Snake",
+        "prov": [
+          {
+            "page_no": 346
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Large Beast, Unaligned",
+        "prov": [
+          {
+            "page_no": 346
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "AC 13",
+        "prov": [
+          {
+            "page_no": 346
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Initiative +2 (12)",
+        "prov": [
+          {
+            "page_no": 346
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "HP 13 (2d10 + 2)",
+        "prov": [
+          {
+            "page_no": 346
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Speed 30 ft., Swim 30 ft.",
+        "prov": [
+          {
+            "page_no": 346
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "MOD SAVE",
+        "prov": [
+          {
+            "page_no": 346
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "MOD SAVE",
+        "prov": [
+          {
+            "page_no": 346
+          }
+        ]
+      },
+      {
+        "label": "section_header",
+        "text": "Actions",
+        "prov": [
+          {
+            "page_no": 347
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Bite. Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Piercing damage.",
+        "prov": [
+          {
+            "page_no": 347
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Constrict. Strength Saving Throw: DC 12, one Medium or smaller creature the snake can see within 5 feet. Failure: 7 (3d4) Bludgeoning damage, and the target has the Grappled condition (escape DC 12).",
+        "prov": [
+          {
+            "page_no": 347
+          }
+        ]
+      },
+      {
+        "label": "section_header",
+        "text": "Crab",
+        "prov": [
+          {
+            "page_no": 347
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Tiny Beast, Unaligned",
+        "prov": [
+          {
+            "page_no": 347
+          }
+        ]
+      }
+    ],
+    "units": [
+      {
+        "unit_id": "77c6d8111c921bbdf38de3d2758d5aa3cb827f4d7ba03d694b68b0d97d04f361",
+        "unit_type": "prose",
+        "text": "Actions — Bite. Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Piercing damage.",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 0,
+        "page_fingerprint": "f0d885b303da9fd81e8aa2e443695f82d6504b483aac4bb82ad53d7c4c7f4306",
+        "content_hash": "04da941436655c16aff45f5e9acfb8ee95ca960fe4e2990611aa0f8fa0c8efa2",
+        "source_line_start": 0,
+        "source_line_end": 3,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "5c87138855b8edfbbb7132f736b8c0f008b972b3f742eb27918dc79477fe5068",
+        "unit_type": "prose",
+        "text": "Constrict. Strength Saving Throw: DC 12, one Medium or smaller creature the snake can see within 5 feet. Failure: 7 (3d4) Bludgeoning damage, and the target has the Grappled condition (escape DC 12).",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 1,
+        "page_fingerprint": "f0d885b303da9fd81e8aa2e443695f82d6504b483aac4bb82ad53d7c4c7f4306",
+        "content_hash": "87c0f811bfd1c729b58b5629b9084fe140809abe0209027c5fcda568f6f172d6",
+        "source_line_start": 4,
+        "source_line_end": 5,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "ca170f765e467f03cadb72d21bb66538d0c0c051e2cd22ed8b3c5c81cec39eb7",
+        "unit_type": "prose",
+        "text": "Crab — Tiny Beast, Unaligned",
+        "structural_path": [
+          "Crab"
+        ],
+        "ordering_key": 2,
+        "page_fingerprint": "f0d885b303da9fd81e8aa2e443695f82d6504b483aac4bb82ad53d7c4c7f4306",
+        "content_hash": "1c5d3c81ae1e95d64fb2284306204085657677ed2a9d9e3339b24a7534161b21",
+        "source_line_start": 6,
+        "source_line_end": 9,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "037d088dcbd41f035485ee1dabf01b8530149c2fc044a1bb42587f15acb6de11",
+        "unit_type": "prose",
+        "text": "AC 11",
+        "structural_path": [
+          "Crab"
+        ],
+        "ordering_key": 3,
+        "page_fingerprint": "f0d885b303da9fd81e8aa2e443695f82d6504b483aac4bb82ad53d7c4c7f4306",
+        "content_hash": "a1b250af910cc5b45072bc9cd3cf4cc8b51c25f14dbcf515c828fac6845b2792",
+        "source_line_start": 10,
+        "source_line_end": 11,
+        "anomaly_flags": [
+          "undersized"
+        ],
+        "content_version": "override-dpi200"
+      }
+    ]
+  },
+  {
+    "page": 359,
+    "owner": "Plesiosaurus",
+    "texts": [
+      {
+        "label": "section_header",
+        "text": "Plesiosaurus",
+        "prov": [
+          {
+            "page_no": 358
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Large Beast (Dinosaur), Unaligned",
+        "prov": [
+          {
+            "page_no": 358
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "AC 13",
+        "prov": [
+          {
+            "page_no": 358
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Initiative +2 (12)",
+        "prov": [
+          {
+            "page_no": 358
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "HP 68 (8d10 + 24)",
+        "prov": [
+          {
+            "page_no": 358
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Speed 20 ft., Swim 40 ft.",
+        "prov": [
+          {
+            "page_no": 358
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "MOD SAVE",
+        "prov": [
+          {
+            "page_no": 358
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "MOD SAVE",
+        "prov": [
+          {
+            "page_no": 358
+          }
+        ]
+      },
+      {
+        "label": "section_header",
+        "text": "Actions",
+        "prov": [
+          {
+            "page_no": 359
+          }
+        ]
+      },
+      {
+        "label": "text",
+        "text": "Bite. Melee Attack Roll: +6, reach 10 ft. Hit: 11 (2d6 + 4) Piercing damage.",
+        "prov": [
+          {
+            "page_no": 359
+          }
+        ]
+      },
+      {
+        "label": "section_header",
+        "text": "Polar Bear",
+        "prov": [
+          {
+            "page_no": 359
+          }
+        ]
+      },
+      {
+        "label": "code",
+        "text": "Large Beast, Unaligned AC 12 Initiative +2 (12) HP 42 (5d10 + 15) Speed 40 ft., Swim 40 ft. MOD SAVE MOD SAVE MOD SAVE Str 20 +5 +5 Dex 14 +2 +2 Con 16 +3 +3 Int 2 -4 -4 Wis 13 +1 +1 Cha 7 -2 -2",
+        "prov": [
+          {
+            "page_no": 359
+          }
+        ]
+      },
+      {
+        "label": "code",
+        "text": "Skills Perception +5, Stealth +4 Resistances Cold Senses Darkvision 60 ft.; Passive Perception 15 Languages None CR 2 (XP 450; PB +2)",
+        "prov": [
+          {
+            "page_no": 359
+          }
+        ]
+      }
+    ],
+    "units": [
+      {
+        "unit_id": "f714c49745ab72a55658c13c711e948d145d2ca80afac2fcb7270973f651fa8e",
+        "unit_type": "prose",
+        "text": "Actions — Bite. Melee Attack Roll: +6, reach 10 ft. Hit: 11 (2d6 + 4) Piercing damage.",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 0,
+        "page_fingerprint": "15bf0c8472f8a4f9dce051021ea122f0f595eb65a906dc0f5766df7c1dd7eaea",
+        "content_hash": "16794e97bedcbf143ac6af57957741cf8a4c07f79666e79a6a6dd7e36726b6d7",
+        "source_line_start": 0,
+        "source_line_end": 3,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "4519fa1489d8ee2a93f89eba2f4c585f69293b8a66b8a6b4df939f67cb0ffaf5",
+        "unit_type": "prose",
+        "text": "Polar Bear — <!-- image -->",
+        "structural_path": [
+          "Polar Bear"
+        ],
+        "ordering_key": 1,
+        "page_fingerprint": "15bf0c8472f8a4f9dce051021ea122f0f595eb65a906dc0f5766df7c1dd7eaea",
+        "content_hash": "737c32762fe3a57b5756ae1a1236dabb7498ae9c0df745f7b561bf18393d864f",
+        "source_line_start": 4,
+        "source_line_end": 7,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "f40773c25728971b45657a0a842c64cccf92883181f3196852b686db229bbffc",
+        "unit_type": "prose",
+        "text": "```\nSkills Perception +5, Stealth +4 Resistances Cold Senses Darkvision 60 ft.; Passive Perception 15 Languages None CR 2 (XP 450; PB +2)\n```",
+        "structural_path": [
+          "Polar Bear"
+        ],
+        "ordering_key": 2,
+        "page_fingerprint": "15bf0c8472f8a4f9dce051021ea122f0f595eb65a906dc0f5766df7c1dd7eaea",
+        "content_hash": "8ad964db153b19a5b5058e404e873c48e9feb083ba344a0a23f824332a6f2fe0",
+        "source_line_start": 8,
+        "source_line_end": 11,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "bebeba5279e8a6eee6370b57e24cb22edd35ef7cb54365c8646e7d3e27986294",
+        "unit_type": "prose",
+        "text": "Actions — Multiattack. The bear makes two Rend attacks.",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 3,
+        "page_fingerprint": "15bf0c8472f8a4f9dce051021ea122f0f595eb65a906dc0f5766df7c1dd7eaea",
+        "content_hash": "8ad3384f783d097520829e8ceb9f290ae6cfcfaa0f71dc41e7db98f32cb882e0",
+        "source_line_start": 12,
+        "source_line_end": 15,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      }
+    ]
+  }
+]
