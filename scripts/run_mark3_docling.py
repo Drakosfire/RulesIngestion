@@ -19,6 +19,7 @@ from docling_core.types.doc import DoclingDocument
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from extraction.docling_order import repair
+from extraction.creature_carryover import bind_continuation, continuation_scopes
 from extraction.gates_b import run_stage_b_gates
 from extraction.pdf_outline_scope import fill_missing_scope, outline_scope
 from extraction.pipeline import run_a_b
@@ -70,6 +71,8 @@ def main() -> int:
             device=AcceleratorDevice.CPU, num_threads=args.threads))
         converter = DocumentConverter(format_options={
             InputFormat.PDF: PdfFormatOption(pipeline_options=options)})
+        previous_texts = []
+        previous_end = 0
         for first, last in ranges:
             result = converter.convert(source, page_range=(first, last))
             if result.status.value != "success":
@@ -80,6 +83,13 @@ def main() -> int:
             raw.save_as_json(out / f"docling-{first}-{last}.json")
             ordered = raw.export_to_dict()
             moves = repair(ordered, pdf)
+            context = previous_texts if previous_end + 1 == first else []
+            scopes = continuation_scopes({"texts": context + ordered["texts"]})
+            previous_texts = [
+                item for item in ordered["texts"]
+                if any(span["page_no"] == last for span in item["prov"])
+            ]
+            previous_end = last
             doc = DoclingDocument.model_validate(ordered)
             doc.save_as_json(out / f"ordered-{first}-{last}.json")
             for n in range(first, last + 1):
@@ -90,8 +100,12 @@ def main() -> int:
                 if combined["stage_a"]["table_count"] != expected or sum(u["unit_type"] == "table" for u in units) != expected:
                     raise ValueError(f"PDF page {n}: source tables were lost in Mark III")
                 stage_b_passed = combined["stage_b"]["gates_passed"]
-                if args.outline_scope:
-                    scoped = fill_missing_scope([EvidenceUnit.from_dict(u) for u in units], n, destinations)
+                if args.outline_scope or n in scopes:
+                    scoped = bind_continuation(
+                        [EvidenceUnit.from_dict(u) for u in units], n, scopes.get(n)
+                    )
+                    if args.outline_scope:
+                        scoped = fill_missing_scope(scoped, n, destinations)
                     ast = json.loads((page_out / "stageA.surface.ast.json").read_text())
                     diagnostics = run_stage_b_gates(scoped, ast_dict=ast, is_standalone=(n == 1))
                     stage_b_passed = all(g.passed for g in diagnostics)
