@@ -26,3 +26,12 @@ def test_no_owner_carryover_without_adjacent_source_page():
     case = cases[0]
     current = [x for x in case["texts"] if x["prov"][0]["page_no"] == case["page"]]
     assert continuation_scopes({"texts": current}) == {}
+
+
+def test_carryover_stops_at_image_boundary_even_when_marked_as_prose():
+    case = json.loads(Path(__file__).with_name("srd_creature_carryover.json").read_text())[0]
+    first, following = [EvidenceUnit.from_dict(row) for row in case["units"][:2]]
+    image = EvidenceUnit.from_dict({**case["units"][1], "text": "<!-- image -->"})
+    bound = bind_continuation([first, image, following], case["page"], (case["owner"], "Actions"))
+    assert bound[0].structural_path == [case["owner"], "Actions"]
+    assert bound[1:] == [image, following]

@@ -55,7 +55,11 @@ def bind_continuation(
     owner, section = scope
     bound = []
     for unit in units:
-        if unit.structural_path != [section] or unit.unit_type == "image_ref":
+        if (
+            unit.structural_path != [section]
+            or unit.unit_type == "image_ref"
+            or "<!-- image -->" in unit.text
+        ):
             break
         path = [owner, section]
         bound.append(replace(
