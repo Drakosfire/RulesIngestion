@@ -1,0 +1,323 @@
+[
+  {
+    "pages": [
+      3,
+      4
+    ],
+    "status": "navigation_only",
+    "units": [
+      {
+        "unit_id": "66801524711b6db20737f45555c10deb6cd74a25acb86b3e09ae25da801358b6",
+        "unit_type": "prose",
+        "text": "Guard............................................................... 296 Guard Captain............................................. 296 Guardian Naga............................................ 296 Half-Dragon.................................................. 297 Harpy............................................................... 297 Hawk.......................................",
+        "structural_path": [
+          "System Reference Document 5.2.1"
+        ],
+        "ordering_key": 2,
+        "page_fingerprint": "401d0f201083d05c95bbc13294f6f7376418552e3a44d98adb79c8dd2c51efae",
+        "content_hash": "e5a1843e4896f41458550f45b9d369d615e84cf3723f684b8daa55bf4af01933",
+        "source_line_start": 4,
+        "source_line_end": 5,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200",
+        "join_metadata": {
+          "publisher_outline": {
+            "destination_pdf_page": 1,
+            "original_unit_id": "c429080bf8f2c22f6f542f8c7e6a6ded05d17881a0a6fd2ce69a1718826e03ce"
+          }
+        }
+      },
+      {
+        "unit_id": "f9eec24a239d8ea069682cf0a23b698ca1c5d0655ae16998db279518c925f515",
+        "unit_type": "prose",
+        "text": "Piranha........................................................... 358 Pirate................................................................314 Pirate Captain..............................................314 Pit Fiend..........................................................314 Planetar.......................................................... 315 Plesiosaurus.................",
+        "structural_path": [
+          "System Reference Document 5.2.1"
+        ],
+        "ordering_key": 0,
+        "page_fingerprint": "76755363a079a418d51a99a507d90d12f274dd3f3c52c2cf8b0c98e4a188b512",
+        "content_hash": "3b88988f7a99515d7be05baba65f2103fd8caaa98aec09569f94f1e6508c1631",
+        "source_line_start": 0,
+        "source_line_end": 1,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200",
+        "join_metadata": {
+          "publisher_outline": {
+            "destination_pdf_page": 1,
+            "original_unit_id": "1dd9a334128670b91fa70a496838539ad15d0cb3e2741e64d008983ebf1ffc0e"
+          }
+        }
+      }
+    ],
+    "at_boundary": [
+      true,
+      true
+    ]
+  },
+  {
+    "pages": [
+      276,
+      277
+    ],
+    "status": "false_join",
+    "units": [
+      {
+        "unit_id": "2f6f2593de18771a5074507f597bb59e311a9eac9366826472b75e5886862d8e",
+        "unit_type": "list",
+        "text": "At Will: Detect Magic, Mind Spike (level 4 version), Minor Illusion, Shapechange (Beast or Humanoid form only, no Temporary Hit Points gained from the spell, and no Concentration or Temporary Hit Points required to maintain the spell)",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 27,
+        "page_fingerprint": "b6a1ccb2b38a1258ac6e02c6600f89f84c1d3232be6c18458d131b59cb07d6c7",
+        "content_hash": "cd99cd05a784421e7e369349834a1a93345737f25edca1849a6f4cff647deb24",
+        "source_line_start": 66,
+        "source_line_end": 67,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "b8e3267a2cc02ce99afd2480cbcc5a56c9c5f1c79b40bfcdd2200820b792683e",
+        "unit_type": "list",
+        "text": "At Will: Detect Magic, Mind Spike (level 5 version), Minor Illusion, Shapechange (Beast or Humanoid form only, no Temporary Hit Points gained from the spell, and no Concentration or Temporary Hit Points required to maintain the spell)\n1/Day Each: Greater Restoration, Major Image, Project Image",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 8,
+        "page_fingerprint": "cb8c617d9875db5fa0b6299549fc66d8b6ac3d473e599ec0489486d81f333052",
+        "content_hash": "9a3d64da545d1d1baa62d4bb1bccaf19ebb69fac263ccefe2c122bad6a80c45e",
+        "source_line_start": 20,
+        "source_line_end": 22,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      }
+    ],
+    "at_boundary": [
+      false,
+      false
+    ]
+  },
+  {
+    "pages": [
+      325,
+      326
+    ],
+    "status": "false_join",
+    "units": [
+      {
+        "unit_id": "3f98f2e2584302a4afa96c8e88d35a98762fc29ff759e1a6c2b034d840ffced8",
+        "unit_type": "list",
+        "text": "At Will: Detect Magic, Hold Monster, Ice Knife (level 2 version), Shapechange (Beast or Humanoid form only, no Temporary Hit Points gained from the spell, and no Concentration or Temporary Hit Points required to maintain the spell)\n1/Day Each: Control Weather, Ice Storm (level 7 version), Teleport, Zone of Truth",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 13,
+        "page_fingerprint": "1eb7ba50648753b2b1aa6f23990d0e1e22c070020ae06e70a6012a51cd76c181",
+        "content_hash": "50058b298bf18e2df22dace27154aff90518a566a8b52c065bffcc94336cfd69",
+        "source_line_start": 32,
+        "source_line_end": 34,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "0600ad3fbad84a5e7765665381119964520a56adb2a72500e2897ad254319ae5",
+        "unit_type": "list",
+        "text": "1/Day Each: Commune, Control Weather, Dispel Evil and Good, Resurrection",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 23,
+        "page_fingerprint": "25456fad13f60f4fe3e15480a2f0650ed7475a87044435e87e6c9e3ef8c422a6",
+        "content_hash": "635fc5fb31bf5d783424b6645dcc9589bc2423036607f2ba52f6e2773fa1aaf0",
+        "source_line_start": 68,
+        "source_line_end": 69,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      }
+    ],
+    "at_boundary": [
+      false,
+      false
+    ]
+  },
+  {
+    "pages": [
+      328,
+      329
+    ],
+    "status": "false_join",
+    "units": [
+      {
+        "unit_id": "ae5e27482eb57bf8d28693a35a4fbf1aa5d63336846614ad3cbd6a0cb4f4da5b",
+        "unit_type": "list",
+        "text": "First Roar. Wisdom Saving Throw: DC 20, each enemy in a 500-foot Emanation originating from the sphinx. Failure: The target has the Frightened condition for 1 minute.\nSecond Roar. Wisdom Saving Throw: DC 20, each enemy in a 500-foot Emanation originating from the sphinx. Failure: The target has the Paralyzed condition, and it repeats the save at the end of each of its turns, ending the effect on itself on a success. After 1 minute, it succeeds automatically.\nThird Roar. Constitution Saving Throw: DC 20, each enemy in a 500-foot Emanation originating from the sphinx. Failure: 44 (8d10) Thunder damage, and the target has the Prone condition. Success: Half damage only.",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 15,
+        "page_fingerprint": "77733bc77fe13995a67b20eb2eed149aacd4bff12136d80afb08039d7d7c8e57",
+        "content_hash": "31e4ae7c6ccccae8820aea9979683059db9e9819bc806d4a1701d50ea18a506b",
+        "source_line_start": 41,
+        "source_line_end": 44,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "d7241447d9f9d8198f63977962e8a9ea9477f8fa09ad3da6b01dfe2a5d2aabc0",
+        "unit_type": "list",
+        "text": "2/Day Each: Detect Thoughts, Dimension Door, Hold Person (level 3 version), Lightning Bolt (level 4 version)",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 7,
+        "page_fingerprint": "2f6aa4ba0d298f1263b931addca2dbb95df994a496a60e97e9ff691fc1db22a8",
+        "content_hash": "b57d3d9d35325e08079ea28220eaf952b6414e7538bcc983cf7e1bafeabfa371",
+        "source_line_start": 22,
+        "source_line_end": 23,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      }
+    ],
+    "at_boundary": [
+      false,
+      false
+    ]
+  },
+  {
+    "pages": [
+      346,
+      347
+    ],
+    "status": "same_creature_distinct_sections",
+    "units": [
+      {
+        "unit_id": "871cdfaecd59a56801cd542e5b3570248e6a246446e4754b7dcd4a0ec2cdd311",
+        "unit_type": "prose",
+        "text": "Skills Perception +2, Stealth +4 Senses Blindsight 10 ft.; Passive Perception 12 Languages None CR 1/4 (XP 50; PB +2)",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 22,
+        "page_fingerprint": "aead81e4e6d72859baa2cd4d5de7b1d0018b8fc7b3a645cd8513a16684bfa6ba",
+        "content_hash": "6d1d5dde80ff22f406387cf78d5d45eb4f1d25151efec2ff0b0d0ef0ebbe9b05",
+        "source_line_start": 62,
+        "source_line_end": 63,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "77c6d8111c921bbdf38de3d2758d5aa3cb827f4d7ba03d694b68b0d97d04f361",
+        "unit_type": "prose",
+        "text": "Actions — Bite. Melee Attack Roll: +4, reach 5 ft. Hit: 6 (1d8 + 2) Piercing damage.",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 0,
+        "page_fingerprint": "f0d885b303da9fd81e8aa2e443695f82d6504b483aac4bb82ad53d7c4c7f4306",
+        "content_hash": "04da941436655c16aff45f5e9acfb8ee95ca960fe4e2990611aa0f8fa0c8efa2",
+        "source_line_start": 0,
+        "source_line_end": 3,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      }
+    ],
+    "at_boundary": [
+      true,
+      true
+    ]
+  },
+  {
+    "pages": [
+      358,
+      359
+    ],
+    "status": "same_creature_distinct_sections",
+    "units": [
+      {
+        "unit_id": "559230c2734d10b18e8df0a2af47ff2bf370cee9aae2be77bca2f15d7a442e51",
+        "unit_type": "prose",
+        "text": "Hold Breath. The plesiosaurus can hold its breath for 1 hour.",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 29,
+        "page_fingerprint": "ce4983052abbcc2e3f84dbcf569414fe4ce9fd490d0310a28ca8b09c1d372668",
+        "content_hash": "e1570aa60fce81700a2f18cf34ebee187872188e533a3f2b3889b4b95b3a20c1",
+        "source_line_start": 84,
+        "source_line_end": 85,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "f714c49745ab72a55658c13c711e948d145d2ca80afac2fcb7270973f651fa8e",
+        "unit_type": "prose",
+        "text": "Actions — Bite. Melee Attack Roll: +6, reach 10 ft. Hit: 11 (2d6 + 4) Piercing damage.",
+        "structural_path": [
+          "Actions"
+        ],
+        "ordering_key": 0,
+        "page_fingerprint": "15bf0c8472f8a4f9dce051021ea122f0f595eb65a906dc0f5766df7c1dd7eaea",
+        "content_hash": "16794e97bedcbf143ac6af57957741cf8a4c07f79666e79a6a6dd7e36726b6d7",
+        "source_line_start": 0,
+        "source_line_end": 3,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      }
+    ],
+    "at_boundary": [
+      true,
+      true
+    ]
+  },
+  {
+    "pages": [
+      161,
+      162
+    ],
+    "status": "join",
+    "units": [
+      {
+        "unit_id": "b9c8bfa0c62a060f71faeb9e44ac530d6cdf5f637172550c447b947dea8f998c",
+        "unit_type": "prose",
+        "text": "An imperceptible barrier of magical force protects you. Until the start of your next turn, you have a +5",
+        "structural_path": [
+          "Shield"
+        ],
+        "ordering_key": 25,
+        "page_fingerprint": "ca0ce838ce44185fc4a4bf87638d804ce6086081f67244827ad295bbfe4f04e4",
+        "content_hash": "bea0a376a1b88b39c68c084bccc59bc8835b40dc8b43b714025263c69145f311",
+        "source_line_start": 60,
+        "source_line_end": 61,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200"
+      },
+      {
+        "unit_id": "47c6e82e63a7db275957ebbe8610139567652c00c69f92e5be6b9e1c3ebcd70d",
+        "unit_type": "prose",
+        "text": "bonus to AC, including against the triggering attack, and you take no damage from Magic Missile.",
+        "structural_path": [
+          "System Reference Document 5.2.1",
+          "Spells",
+          "Spell Descriptions"
+        ],
+        "ordering_key": 0,
+        "page_fingerprint": "746fa2cd7d3c3a3820445a6b5d80cec2733fc51108d87ec648abee181c93e172",
+        "content_hash": "904f843d88ac4842912da33cb3852b48407e5ff4f33b235613c642fefccbe2c1",
+        "source_line_start": 0,
+        "source_line_end": 1,
+        "anomaly_flags": [],
+        "content_version": "override-dpi200",
+        "join_metadata": {
+          "publisher_outline": {
+            "destination_pdf_page": 106,
+            "original_unit_id": "28c70037521bf656a0e00d1ba076ea3909bea1c52d4912f10792afb529bcb8d1"
+          }
+        }
+      }
+    ],
+    "at_boundary": [
+      true,
+      true
+    ]
+  }
+]
