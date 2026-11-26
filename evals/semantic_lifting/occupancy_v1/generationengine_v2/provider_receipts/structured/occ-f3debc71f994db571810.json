@@ -1,0 +1,50 @@
+{
+  "schema_version": "semantic-ge-receipt-v2",
+  "contract": {
+    "execution_contract_version": "semantic-ge-receipt-v2",
+    "generationengine_commit": "55f6707de40c62893855b13e875730e804853d61",
+    "operation": "generate_structured",
+    "requested_provider": "openai",
+    "requested_model": "gpt-5.3-codex",
+    "requested_profile": null,
+    "input_digest": "4581bc3096df85dccf3af06ff1e2b3547c8c96e2bebbbf9758e0af431df7bb57",
+    "prompt_hash": "c9d77127e71846389c5e0cadfc6ae142e747026bc0b7b9337c0a70d68675c781",
+    "schema_hash": "72f457f4adb7dd539479731747b8876e103fcfec0568b6c15851964350893976",
+    "questions_hash": null,
+    "max_output_tokens": 800
+  },
+  "request_digest": "28273cd8477ab8ae3af4693eeabb4a72492a1e8bae084d620ee3544d86a60b47",
+  "generationengine_commit": "55f6707de40c62893855b13e875730e804853d61",
+  "operation": "generate_structured",
+  "observation": {
+    "provider": "openai",
+    "requested_profile": null,
+    "requested_model": "gpt-5.3-codex",
+    "resolved_model": "gpt-5.3-codex",
+    "response_model": "gpt-5.3-codex",
+    "provider_transport": null,
+    "provider_request_id": "req_989d973d93c842f49820c57c25ae64bd",
+    "provider_response_id": "resp_09426ca2162da845006ab81415ad5887d1b96469bcd10d7365",
+    "input_tokens": 678,
+    "cached_input_tokens": 0,
+    "output_tokens": 102,
+    "reasoning_tokens": 0,
+    "cost_usd": null,
+    "latency_ms": 2576,
+    "retry_count": 0,
+    "transport_retry_count": 0,
+    "conformance_retry_count": 0,
+    "provider_attempt_count": 1,
+    "state": "completed",
+    "failure_code": null,
+    "pricing_source": null
+  },
+  "output": {
+    "classification": "restriction",
+    "evidence_sufficient": true,
+    "disposition": "accept",
+    "rationale": "The evidence explicitly states: “You can’t willingly end a move in a space occupied by another creature.” This directly supports the candidate restriction as worded (creature movement cannot willingly end in another creature’s space). The additional sentence about becoming Prone if a turn ends in the same space is a separate consequence and does not limit or contradict the claimed restriction."
+  },
+  "semantic_digest": "eb769003f2b2827f42f121aac3cb464235c22ea616eb7c49d4f9db480dc6c8c4",
+  "receipt_digest": "413b90125851d4b7bc63cef9130ae2c9c5f18f0a8ec659263f3c4975cc4b2bb1"
+}

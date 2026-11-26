@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from typing import Literal
 
+from generationengine import (
+    BinaryDecisionQuestion,
+    ChoiceDecisionQuestion,
+    DecisionRequest,
+    GenerationClient,
+    TextRequest,
+)
 from pydantic import BaseModel, ConfigDict
 
-from semantic_lifting.contracts import DecisionQuestion, DecisionRequest, canonical_json, digest
-from semantic_lifting.jev import decide
-
+from semantic_lifting.contracts import canonical_json, digest, ge_contract, ge_receipt
 
 CLASSIFICATION_CRITERIA = {
     "restriction": "A prohibition or default rule about what cannot be done.",
@@ -52,69 +57,58 @@ def judgment_state(candidate: dict, evidence: list[dict]) -> dict:
 
 
 def structured_contract(state: dict, model: str) -> dict:
-    return {
-        "model": model,
-        "state_digest": digest(state),
-        "prompt_hash": digest(STRUCTURED_PROMPT),
-        "schema_hash": digest(StructuredJudgment.model_json_schema()),
-    }
+    return ge_contract(operation="generate_structured", provider="openai", model=model,
+                       input_digest=digest(state), prompt_hash=digest(STRUCTURED_PROMPT),
+                       schema_hash=digest(StructuredJudgment.model_json_schema()),
+                       max_output_tokens=800)
 
 
-def adjudicate_structured(client: object, *, model: str, state: dict) -> dict:
+async def adjudicate_structured(client: GenerationClient, *, model: str, state: dict) -> dict:
     contract = structured_contract(state, model)
-    response = client.responses.parse(
-        model=model,
-        input=[
-            {"role": "developer", "content": STRUCTURED_PROMPT},
-            {"role": "user", "content": canonical_json(state)},
-        ],
-        text_format=StructuredJudgment,
+    result = await client.generate_structured(TextRequest(
+        model=model, provider="openai", temperature=None,
+        system_prompt=STRUCTURED_PROMPT, user_prompt=canonical_json(state),
+        json_schema=StructuredJudgment.model_json_schema(), schema_name="StructuredJudgment",
         max_output_tokens=800,
-    )
-    if response.status != "completed" or response.output_parsed is None:
-        raise ValueError("Structured adjudication incomplete or unparseable")
-    return {
-        "contract": contract,
-        "request_digest": digest(contract),
-        "provider_response_id": response.id,
-        "resolved_model": response.model,
-        "usage": response.usage.model_dump(mode="json") if response.usage else None,
-        "output": response.output_parsed.model_dump(mode="json"),
-    }
+    ))
+    if result.parsed is None:
+        raise ValueError("GE structured adjudication has no parsed output")
+    output = StructuredJudgment.model_validate(result.parsed).model_dump(mode="json")
+    return ge_receipt(contract, result.observation, output)
 
 
 def jev_contract(state: dict, model: str) -> dict:
     questions = _jev_questions()
-    return {
-        "model": model,
-        "state_digest": digest(state),
-        "questions_digest": digest({name: question.as_payload() for name, question in sorted(questions.items())}),
-    }
+    return ge_contract(operation="decide", provider="typesafe", model=model,
+                       input_digest=digest(state),
+                       questions_hash=digest([question.model_dump(mode="json") for question in questions]))
 
 
-def _jev_questions() -> dict[str, DecisionQuestion]:
-    return {
-        "classification": DecisionQuestion("choice", CLASSIFICATION_INSTRUCTION, CLASSIFICATION_CRITERIA),
-        "evidence_sufficient": DecisionQuestion("noul", SUFFICIENCY_INSTRUCTION),
-        "disposition": DecisionQuestion("choice", DISPOSITION_INSTRUCTION, DISPOSITION_CRITERIA),
-    }
+def _jev_questions() -> tuple[ChoiceDecisionQuestion | BinaryDecisionQuestion, ...]:
+    return (
+        ChoiceDecisionQuestion(name="classification", question=CLASSIFICATION_INSTRUCTION,
+                               options=tuple(CLASSIFICATION_CRITERIA),
+                               option_descriptions=CLASSIFICATION_CRITERIA),
+        BinaryDecisionQuestion(name="evidence_sufficient", question=SUFFICIENCY_INSTRUCTION),
+        ChoiceDecisionQuestion(name="disposition", question=DISPOSITION_INSTRUCTION,
+                               options=tuple(DISPOSITION_CRITERIA),
+                               option_descriptions=DISPOSITION_CRITERIA),
+    )
 
 
-def adjudicate_jev(*, api_key: str, model: str, state: dict) -> dict:
+async def adjudicate_jev(client: GenerationClient, *, model: str, state: dict) -> dict:
     contract = jev_contract(state, model)
-    outcome = decide(DecisionRequest(state=state, questions=_jev_questions(), model=model), api_key=api_key)
-    if outcome.status != "success" or outcome.receipt is None:
-        raise RuntimeError(f"Jev adjudication failed: {outcome.status}")
-    answers = outcome.receipt.answers
-    sufficient_probability = float(answers["evidence_sufficient"]["noul"])
-    return {
-        "contract": contract,
-        "request_digest": digest(contract),
-        "provider_receipt": outcome.receipt.as_payload(),
-        "output": {
-            "classification": answers["classification"]["choice"],
-            "evidence_sufficient": sufficient_probability >= 0.5,
-            "evidence_sufficient_probability": sufficient_probability,
-            "disposition": answers["disposition"]["choice"],
-        },
+    result = await client.decide(DecisionRequest(
+        state=state, questions=_jev_questions(), provider="typesafe", model=model,
+    ))
+    answers = result.answers
+    sufficient_probability = answers["evidence_sufficient"].probability_true
+    if sufficient_probability is None:
+        raise ValueError("Jev did not supply binary probability")
+    output = {
+        "classification": answers["classification"].selected,
+        "evidence_sufficient": answers["evidence_sufficient"].value,
+        "evidence_sufficient_probability": sufficient_probability,
+        "disposition": answers["disposition"].selected,
     }
+    return ge_receipt(contract, result.observation, output)
