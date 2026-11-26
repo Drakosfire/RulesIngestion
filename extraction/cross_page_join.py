@@ -7,8 +7,9 @@ tables, lists). Assign table_group_id for retrieval expansion.
 
 from __future__ import annotations
 
+import re
+from collections import Counter
 from dataclasses import dataclass
-from typing import Any
 
 import blake3
 
@@ -25,108 +26,32 @@ class JoinCandidate:
     structural_path_match: bool
 
 
-def _structural_path_prefix_match(path_a: list[str], path_b: list[str]) -> bool:
-    """True if paths share a common prefix (heading ancestry)."""
-    if not path_a or not path_b:
-        return False
-    min_len = min(len(path_a), len(path_b))
-    return path_a[:min_len] == path_b[:min_len]
-
-
 def detect_split_paragraphs(
     units_page_n: list[EvidenceUnit],
     units_page_n1: list[EvidenceUnit],
 ) -> list[JoinCandidate]:
-    """Detect paragraph continuations across page boundary.
-
-    Heuristic: last prose/paragraph unit on page N and first prose on page N+1
-    share structural_path prefix.
-    """
+    """Join only a visibly unfinished paragraph at the actual page boundary."""
     if not units_page_n or not units_page_n1:
         return []
+    left, right = units_page_n[-1], units_page_n1[0]
     prose_types = {"prose", "paragraph"}
-    last_n = None
-    for u in reversed(units_page_n):
-        if u.unit_type in prose_types:
-            last_n = u
-            break
-    first_n1 = None
-    for u in units_page_n1:
-        if u.unit_type in prose_types:
-            first_n1 = u
-            break
-    if last_n is None or first_n1 is None:
+    if left.unit_type not in prose_types or right.unit_type not in prose_types:
         return []
-    if not _structural_path_prefix_match(last_n.structural_path, first_n1.structural_path):
+    before, after = left.text.rstrip(), right.text.lstrip()
+    if not before or not re.match(r"[a-z]", after):
         return []
-    return [JoinCandidate(
-        unit_n_id=last_n.unit_id,
-        unit_n1_id=first_n1.unit_id,
-        join_type="paragraph",
-        structural_path_match=True,
-    )]
-
-
-def detect_split_tables(
-    units_page_n: list[EvidenceUnit],
-    units_page_n1: list[EvidenceUnit],
-) -> list[JoinCandidate]:
-    """Detect table continuations across page boundary.
-
-    Heuristic: last table unit on page N and first table on page N+1 share
-    structural_path prefix (same heading).
-    """
-    if not units_page_n or not units_page_n1:
+    if re.search(r'[.!?…][”"’\')\]]*$', before):
         return []
-    last_n = None
-    for u in reversed(units_page_n):
-        if u.unit_type == "table":
-            last_n = u
-            break
-    first_n1 = None
-    for u in units_page_n1:
-        if u.unit_type == "table":
-            first_n1 = u
-            break
-    if last_n is None or first_n1 is None:
+    left_path, right_path = left.structural_path, right.structural_path
+    same_scope = bool(left_path) and left_path == right_path
+    # Contents and index entries use repeating dot leaders and page numbers.
+    if any(len(re.findall(r"\.{4,}\s*\d+", text)) >= 5 for text in (before, after)):
         return []
-    if not _structural_path_prefix_match(last_n.structural_path, first_n1.structural_path):
+    # A page-level bookmark is a fallback, never a new local section heading.
+    fallback_scope = not right_path or bool((right.join_metadata or {}).get("publisher_outline"))
+    if not (same_scope or fallback_scope):
         return []
-    return [JoinCandidate(
-        unit_n_id=last_n.unit_id,
-        unit_n1_id=first_n1.unit_id,
-        join_type="table",
-        structural_path_match=True,
-    )]
-
-
-def detect_split_lists(
-    units_page_n: list[EvidenceUnit],
-    units_page_n1: list[EvidenceUnit],
-) -> list[JoinCandidate]:
-    """Detect list continuations across page boundary."""
-    if not units_page_n or not units_page_n1:
-        return []
-    last_n = None
-    for u in reversed(units_page_n):
-        if u.unit_type == "list":
-            last_n = u
-            break
-    first_n1 = None
-    for u in units_page_n1:
-        if u.unit_type == "list":
-            first_n1 = u
-            break
-    if last_n is None or first_n1 is None:
-        return []
-    if not _structural_path_prefix_match(last_n.structural_path, first_n1.structural_path):
-        return []
-    return [JoinCandidate(
-        unit_n_id=last_n.unit_id,
-        unit_n1_id=first_n1.unit_id,
-        join_type="list",
-        structural_path_match=True,
-    )]
+    return [JoinCandidate(left.unit_id, right.unit_id, "paragraph", same_scope)]
 
 
 def apply_joins(
@@ -264,7 +189,10 @@ def run_join_pass(units_by_page: list[list[EvidenceUnit]]) -> list[EvidenceUnit]
         page_n = units_by_page[i]
         page_n1 = units_by_page[i + 1]
         candidates.extend(detect_split_paragraphs(page_n, page_n1))
-        candidates.extend(detect_split_tables(page_n, page_n1))
-        candidates.extend(detect_split_lists(page_n, page_n1))
+        # A shared heading or header cannot establish table or list continuity.
+    # The merge format records two source units. Leave overlapping candidates
+    # separate rather than silently dropping the third fragment.
+    counts = Counter(uid for c in candidates for uid in (c.unit_n_id, c.unit_n1_id))
+    candidates = [c for c in candidates if counts[c.unit_n_id] == counts[c.unit_n1_id] == 1]
     joined = apply_joins(flat, candidates)
     return assign_table_group_ids(joined)

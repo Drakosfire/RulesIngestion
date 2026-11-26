@@ -30,7 +30,7 @@ def _unit(
 def test_join_pass_preserves_source_unit_ids_for_passthrough_and_merged() -> None:
     # p1 prose joins to p2 prose under same structural path.
     page1 = [_unit("u1", text="Part one", page_fp="fp1", ordering_key=0)]
-    page2 = [_unit("u2", text="Part two", page_fp="fp2", ordering_key=1)]
+    page2 = [_unit("u2", text="continues here.", page_fp="fp2", ordering_key=1)]
     joined = run_join_pass([page1, page2])
     assert len(joined) == 1
     merged = joined[0]
@@ -47,3 +47,20 @@ def test_join_pass_preserves_passthrough_source_unit_ids() -> None:
     assert len(joined) == 2
     assert joined[0].source_unit_ids == ["u1"]
     assert joined[1].source_unit_ids == ["u2"]
+
+
+def test_reviewed_srd_cross_page_boundaries() -> None:
+    import json
+    from pathlib import Path
+
+    cases = json.loads(Path(__file__).with_name("srd_join_boundaries.json").read_text())
+    for case in cases:
+        left, right = [EvidenceUnit.from_dict(row) for row in case["units"]]
+        joined = run_join_pass([[left], [right]])
+        if case["status"] == "join":
+            assert len(joined) == 1, case["pages"]
+            assert joined[0].source_unit_ids == [left.unit_id, right.unit_id]
+            assert joined[0].page_fingerprints == [left.page_fingerprint, right.page_fingerprint]
+            assert joined[0].structural_path == ["Shield"]
+        else:
+            assert [unit.unit_id for unit in joined] == [left.unit_id, right.unit_id], case["pages"]
