@@ -147,7 +147,31 @@ uv sync
 uv run pytest tests/ -v
 ```
 
-### Ingestion: full book (recommended default)
+### Ingestion for PDFs with selectable text
+
+Start with Docling for a new native-text rulebook. This is the path used
+for the accepted Worlds Without Number corpus. Run the Docling bridge in
+an environment with the RulesIngestion dependencies and Docling 2.153.0
+(the version tested on Worlds Without Number).
+
+```bash
+python scripts/run_mark3_docling.py \
+  --pdf <PDF_PATH> \
+  --out-dir <NEW_OUT_DIR>
+```
+
+The bridge runs Docling on CPU with OCR disabled and sends page Markdown
+with HTML tables through Mark III. Omit `--range` for the full book, or use
+`--range 38-41` for a representative sample (inclusive PDF pages, counted
+from 1). Use a fresh output directory under Projects and retain
+`source.json` with the artifacts. For gold annotation, verify the printed
+page mapping, reading order, and table headings, rows, and notes against
+the PDF. A table-count check can miss a source table the parser never detected.
+
+### Ingestion for scans and targeted OCR comparison
+
+Use the DeepSeek Mark III runner for image-only material or to compare a
+page where the Docling result needs investigation.
 
 ```bash
 uv run python scripts/run_mark3_full_pdf.py \
